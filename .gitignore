@@ -1,0 +1,25 @@
+# .NET
+bin/
+obj/
+*.user
+*.suo
+*.sln.docstates
+*.nupkg
+*.vs/
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Build outputs
+build/dist/
+build/out/
+
+# Runtime
+*.log
+*.cache
+appsettings.Development.json
+
+# Agent memory (opt-in commit)
+AGENTS.md

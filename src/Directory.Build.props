@@ -1,0 +1,22 @@
+<Project>
+  <PropertyGroup>
+    <VersionMajor>0</VersionMajor>
+    <VersionMinor>1</VersionMinor>
+    <VersionPatch>0</VersionPatch>
+    <VersionPrefix>$(VersionMajor).$(VersionMinor).$(VersionPatch)</VersionPrefix>
+
+    <BuildCounterFile>$([MSBuild]::NormalizePath($(MSBuildThisFileDirectory)..\build\build-counter.txt))</BuildCounterFile>
+    <BuildCounter>$([System.IO.File]::ReadAllText($(BuildCounterFile)).Trim())</BuildCounter>
+
+    <AssemblyVersion>$(VersionPrefix).$(BuildCounter)</AssemblyVersion>
+    <FileVersion>$(VersionPrefix).$(BuildCounter)</FileVersion>
+    <InformationalVersion>$(VersionPrefix)-build.$(BuildCounter)</InformationalVersion>
+    <Version>$(VersionPrefix)-build.$(BuildCounter)</Version>
+
+    <Authors>Marcelo Frau</Authors>
+    <Company>Arcana</Company>
+    <Copyright>Copyright (c) Marcelo Frau 2026</Copyright>
+    <RepositoryUrl>https://github.com/marcelofrau/arcana</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+  </PropertyGroup>
+</Project>

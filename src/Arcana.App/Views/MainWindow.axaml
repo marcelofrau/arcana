@@ -1,0 +1,50 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Arcana.App.ViewModels"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="1200" d:DesignHeight="800"
+        x:Class="Arcana.App.Views.MainWindow"
+        x:DataType="vm:MainViewModel"
+        Title="Arcana"
+        Icon="avares://Arcana.App/Assets/Icons/app.ico">
+    <Grid RowDefinitions="Auto,*,Auto">
+        <Menu Grid.Row="0">
+            <MenuItem Header="_File">
+                <MenuItem Header="_Open Archive" Command="{Binding OpenArchiveCommand}"/>
+                <MenuItem Header="_New Archive" Command="{Binding NewArchiveCommand}"/>
+                <Separator/>
+                <MenuItem Header="E_xit"/>
+            </MenuItem>
+            <MenuItem Header="_Tools">
+                <MenuItem Header="_Split File" Command="{Binding OpenSplitToolCommand}"/>
+                <MenuItem Header="_Join Files" Command="{Binding OpenJoinToolCommand}"/>
+                <MenuItem Header="_Hash Calculator" Command="{Binding OpenHashToolCommand}"/>
+            </MenuItem>
+            <MenuItem Header="_Help">
+                <MenuItem Header="_About"/>
+            </MenuItem>
+        </Menu>
+
+        <Grid Grid.Row="1" ColumnDefinitions="250,4,*">
+            <TreeView Grid.Column="0" ItemsSource="{Binding ArchiveTree}">
+                <TreeView.ItemTemplate>
+                    <TreeDataTemplate ItemsSource="{Binding Children}">
+                        <StackPanel Orientation="Horizontal" Spacing="4">
+                            <TextBlock Text="{Binding Name}"/>
+                        </StackPanel>
+                    </TreeDataTemplate>
+                </TreeView.ItemTemplate>
+            </TreeView>
+
+            <GridSplitter Grid.Column="1" ResizeDirection="Columns"
+                          Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}"/>
+
+            <ContentControl Grid.Column="2" Content="{Binding CurrentView}"/>
+        </Grid>
+
+        <Border Grid.Row="2" Padding="8,4" Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}">
+            <TextBlock Text="{Binding StatusText}"/>
+        </Border>
+    </Grid>
+</Window>
