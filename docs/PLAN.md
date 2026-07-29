@@ -1,114 +1,139 @@
-# Execution Plan
+# Execution Plan & Status
 
-## Prerequisites
+## Project Structure
 
-- .NET 8 SDK (`dotnet --version` ≥ 8.0.x)
-- PowerShell 7+ (Windows) or bash (macOS/Linux)
-- Git
-
-## Setup Steps
-
-### 1. Project Initialization
-
-```shell
-cd arcana
-
-# Create solution
-dotnet new sln -n Arcana -o src
-dotnet sln src/Arcana.sln add src/Arcana.Core
-dotnet sln src/Arcana.sln add src/Arcana.Cli
-dotnet sln src/Arcana.sln add src/Arcana.App
-dotnet sln src/Arcana.sln add tests/Arcana.Core.Tests
-dotnet sln src/Arcana.sln add tests/Arcana.App.Tests
+```
+arcana/
+├── src/
+│   ├── Arcana.Core/       # Engines, VFS, crypto, tools
+│   ├── Arcana.Cli/        # System.CommandLine CLI (8 commands)
+│   └── Arcana.App/        # Avalonia GUI (basic shell)
+├── tests/
+│   ├── Arcana.Core.Tests/ # 134 tests → 137 total
+│   └── Arcana.App.Tests/  # 3 tests
+├── docs/
+│   ├── PLAN.md
+│   ├── ROADMAP.md
+│   └── DECISIONS.md
+├── build/
+│   ├── clean.ps1
+│   └── increment-version.ps1
+├── AGENTS.md
+└── .gitignore
 ```
 
-### 2. Project Dependencies
+## Completed
 
-| Project | References |
-|---|---|
-| Arcana.Core | (none) — pure library |
-| Arcana.Cli | Arcana.Core, System.CommandLine |
-| Arcana.App | Arcana.Core, Avalonia.Desktop, CommunityToolkit.Mvvm |
-| Arcana.Core.Tests | Arcana.Core, xUnit, FluentAssertions |
-| Arcana.App.Tests | Arcana.App, xUnit, FluentAssertions |
+### Core — Compression Engines (17 total)
 
-### 3. Package Installation
-
-```shell
-# Arcana.Core
-dotnet add src/Arcana.Core package SharpCompress
-dotnet add src/Arcana.Core package ZstdNet
-dotnet add src/Arcana.Core package Konscious.Security.Cryptography.Argon2
-
-# Arcana.Cli
-dotnet add src/Arcana.Cli package System.CommandLine
-
-# Arcana.App
-dotnet add src/Arcana.App package Avalonia
-dotnet add src/Arcana.App package Avalonia.Desktop
-dotnet add src/Arcana.App package CommunityToolkit.Mvvm
-dotnet add src/Arcana.App package Microsoft.Extensions.DependencyInjection
-
-# Tests
-dotnet add tests/Arcana.Core.Tests package xUnit
-dotnet add tests/Arcana.Core.Tests package FluentAssertions
-```
-
-### 4. Build Verification
-
-```shell
-dotnet restore src/Arcana.sln
-dotnet build src/Arcana.sln -c Debug
-```
-
-## Short-term Tasks (Weeks 1-4)
-
-### Week 1: Foundation
-
-- [ ] Solution + project files created
-- [ ] CI workflow (GitHub Actions) — build + test on push
-- [ ] Core interfaces defined (`IArchiveFormat`, `ICompressionEngine`)
-- [ ] `ArchiveEntry`, `CompressionOptions`, `ProgressReport` models
-- [ ] Basic `ZipEngine` (read-only: list + extract)
-- [ ] Unit tests for ZipEngine
-
-### Week 2: CLI MVP
-
-- [ ] `arcana list` command (list archive contents)
-- [ ] `arcana extract` command (extract archive)
-- [ ] `arcana compress` command (basic ZIP creation)
-- [ ] Integration tests for CLI
-
-### Week 3: UI Shell
-
-- [ ] Avalonia project with MainWindow
-- [ ] File system tree view (non-archive browsing)
-- [ ] Open archive dialog
-- [ ] Archive contents display (grid + tree)
-- [ ] Extract button + dialog
-
-### Week 4: Polish + Release
-
-- [ ] Error handling across all layers
-- [ ] Progress reporting (IProgress<T>)
-- [ ] Cancellation support (CancellationToken)
-- [ ] v0.1.0-alpha release
-
-## Architecture Decisions to Make
-
-| Decision | Options | Target Decision |
-|---|---|---|
-| Async model for IArchiveFormat | `Task<IAsyncEnumerable<...>>` vs callback | Callback + IProgress |
-| VFS storage mode | Memory-mapped files vs in-memory | In-memory with lazy load |
-| Encryption key storage | Key file format (JSON vs binary) | Libsodium sealed box |
-| Plugin discovery | Convention-based vs attribute-based | Attribute-based (future) |
-| Shell extension | Native (COM) vs registry | Native (Windows only, v0.4+) |
-
-## Risk Register
-
-| Risk | Likelihood | Impact | Mitigation |
+| Engine | Backend | R/W | Status |
 |---|---|---|---|
-| SharpCompress 7z write not complete | Medium | High | Fallback to 7z CLI or 7zipSharp |
-| Avalonia mobile stability | Medium | Medium | Delay mobile milestone |
-| Cross-platform I/O differences | Low | Medium | Abstract file system early |
-| Performance overhead of C# vs C++ | Medium | Medium | Critical paths in native, parallel where possible |
+| Zip | SharpCompress ZipArchive + ZipWriter | r/w | ✅ |
+| Zstd | ZstdNet | r/w | ✅ |
+| 7-Zip | SharpCompress 7z r/w | r/w | ✅ |
+| Tar | SharpCompress TarArchive + WriterFactory | r/w | ✅ |
+| Tar.Gz | TarEngine routing | r/w | ✅ |
+| Tar.Bz2 | TarEngine routing | r/w | ✅ |
+| Tar.Xz | TarEngine (Xz write NotSupported) | r/w | ✅ |
+| Tar.Zst | TarEngine via ZstdNet | r/w | ✅ |
+| RAR | SharpCompress RarArchive | r/o | ✅ |
+| ACE | Hawkynt AceFormatDescriptor | r/o | ✅ |
+| ARJ | SharpCompress ArjReader | r/o | ✅ |
+| CAB | Hawkynt CabFormatDescriptor | r/o | ✅ |
+| LZH/LHA | Hawkynt LzhFormatDescriptor | r/o | ✅ |
+| Brotli | System.IO.Compression | r/w | ✅ |
+| GZip | SharpCompress GZip | r/w | ✅ |
+| BZip2 | SharpCompress BZip2 | r/w | ✅ |
+| Xz | SharpCompress Xz (write NotSupported) | r/w | ✅ |
+| LZMA | SharpCompress LZMA (write NotSupported) | r/w | ✅ |
+| LZ4 | K4os.Compression.LZ4 | r/w | ✅ |
+| Snappy | Snappy.Sharp | r/w | ✅ |
+| HawkyntFallback | FormatRegistry auto-detect (240+ formats) | r/o | ✅ |
+
+### Core — Crypto
+
+- [x] AES-256-GCM encryption/decryption (EncryptStream/DecryptStream)
+- [x] Argon2id key derivation (64MB, 3 iterations, 4 parallelism)
+- [x] ChaCha20-Poly1305 enum (implementation pending)
+- [x] EncryptionProvider with salt embedding
+- [x] Password propagation via engine.Password property
+
+### Core — Virtual File System
+
+- [x] ArchiveNode tree with ContentFactory lazy loading
+- [x] Entry management (add file, add directory)
+- [x] Dirty tracking for modified files
+- [ ] Edit-in-place (rename, delete, add) — pending
+
+### Core — Tools
+
+- [x] FileSplitter (with HJSplit-compatible naming `--hjsplit`)
+- [x] FileJoiner (auto-detect single `.001` or directory scan)
+- [x] HashCalculator (MD5, SHA1, SHA256, SHA512 + --verify)
+- [ ] ImageConverter — stub (NotImplementedException)
+- [ ] BatchProcessor — stub (NotImplementedException)
+
+### CLI (8 commands)
+
+- [x] `arcana compress` (StartProgressAsync per file)
+- [x] `arcana extract` (StartStatusAsync per file)
+- [x] `arcana list` (Table output)
+- [x] `arcana convert`
+- [x] `arcana hash` (with --verify)
+- [x] `arcana split` (with --hjsplit)
+- [x] `arcana join`
+- [x] `arcana benchmark`
+- [x] `--no-color` global option
+- [x] `--log-level` (via Serilog)
+- [x] Spectre.Console output wrapper (Output.cs)
+
+### Avalonia App
+
+- [x] Project scaffold (App.axaml, Program.cs)
+- [x] MainWindow with Menu (File, Tools, Help)
+- [x] TreeView for archive contents
+- [x] Status bar
+- [x] DI setup (MainViewModel, ArchiveViewModel, ToolsViewModel, PreviewViewModel, SettingsViewModel)
+- [ ] Open archive dialog — stub
+- [ ] New archive dialog — stub
+- [ ] Archive browsing (grid + tree wired) — stub
+- [ ] Extract dialog — not started
+- [ ] Image preview — not started
+- [ ] Text/Hex preview — stub
+- [ ] Tools panel — stub
+- [ ] Settings window — stub
+- [ ] Progress panel — not started
+- [ ] Drag & drop — not started
+
+### Observability
+
+- [x] Serilog across all 17 engines, ArchiveFactory, all 8 CLI commands, core tools
+- [x] LogConfig.cs with configurable level
+- [x] `--log-level` CLI option
+
+## Not Started
+
+- GitHub Actions CI/CD workflow
+- ChaCha20-Poly1305 implementation
+- Image conversion
+- Batch processing
+- i18n (EN + PT-BR)
+- Theme support (dark/light)
+- Shell extension (Windows)
+- Mobile (iOS/Android)
+- Plugin API
+- WebAssembly
+- FUSE filesystem mount
+- Package distribution (winget, brew, apt)
+
+## Architecture Decisions
+
+See [DECISIONS.md](DECISIONS.md) for all ADRs.
+
+## Next Priority
+
+1. Avalonia GUI: wire archive open, extract, preview
+2. GitHub Actions CI
+3. ChaCha20-Poly1305 implementation
+4. Image preview + conversion
+5. v0.2.0 release

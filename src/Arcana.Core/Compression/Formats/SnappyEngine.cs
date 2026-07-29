@@ -1,16 +1,13 @@
 using Arcana.Core.Cryptography;
-using SharpCompress.Common;
-using SharpCompress.Writers;
 using Serilog;
-using ZstdNet;
 
 namespace Arcana.Core.Compression.Formats;
 
-public class ZstdEngine : IArchiveFormat
+public class SnappyEngine : IArchiveFormat
 {
-    private readonly ILogger _log = Log.ForContext<ZstdEngine>();
-    public string Name => "Zstandard";
-    public string Extension => ".zst";
+    private readonly ILogger _log = Log.ForContext<SnappyEngine>();
+    public string Name => "Snappy";
+    public string Extension => ".snappy";
     public bool CanRead => true;
     public bool CanWrite => true;
     public bool CanEncrypt => false;
@@ -29,40 +26,38 @@ public class ZstdEngine : IArchiveFormat
             Stream readStream = stream;
             if (Password != null)
             {
-                _log.Warning("Password set on Zstandard archive which does not support native encryption");
-                var encOpts = new EncryptionOptions { Password = Password };
-                var provider = new EncryptionProvider(encOpts);
+                _log.Warning("Password set on Snappy archive which does not support native encryption");
+                var provider = new EncryptionProvider(new EncryptionOptions { Password = Password });
                 readStream = provider.CreateDecryptingStream(stream);
             }
 
-            _log.Debug("Decompressing Zstandard data from {Path}", path);
-            var vfs = new Filesystem.VirtualFileSystem();
-            var entries = new List<ArchiveEntry>();
-
-            using var decompressor = new Decompressor();
+            _log.Debug("Decompressing Snappy data from {Path}", path);
             using var ms = new MemoryStream();
             await readStream.CopyToAsync(ms, ct).ConfigureAwait(false);
-            ms.Position = 0;
+            var compressed = ms.ToArray();
 
-            var raw = ms.ToArray();
-            var data = decompressor.Unwrap(raw);
+            var data = Snappy.Sharp.Snappy.Uncompress(compressed);
             var fileName = System.IO.Path.GetFileNameWithoutExtension(path) ?? "unknown";
-
+            var vfs = new Filesystem.VirtualFileSystem();
             vfs.AddFile(fileName, new MemoryStream(data));
-            entries.Add(new ArchiveEntry
+
+            var entries = new List<ArchiveEntry>
             {
-                Path = fileName,
-                Name = fileName,
-                Size = data.Length,
-                CompressedSize = raw.Length,
-                IsDirectory = false,
-                LastModified = DateTime.UtcNow,
-            });
+                new()
+                {
+                    Path = fileName,
+                    Name = fileName,
+                    Size = data.Length,
+                    CompressedSize = compressed.Length,
+                    IsDirectory = false,
+                    LastModified = DateTime.UtcNow,
+                }
+            };
 
             _log.Information("Opened {Path} with 1 entry, size {Size} bytes", path, data.Length);
             return new Archive
             {
-                Format = CompressionFormat.Zstandard,
+                Format = CompressionFormat.Snappy,
                 FormatEngine = this,
                 Entries = entries,
                 Vfs = vfs,
@@ -70,7 +65,7 @@ public class ZstdEngine : IArchiveFormat
         }
         catch (Exception ex)
         {
-            _log.Error(ex, "Failed to open Zstandard archive {Path}", path);
+            _log.Error(ex, "Failed to open Snappy archive {Path}", path);
             throw;
         }
     }
@@ -90,7 +85,7 @@ public class ZstdEngine : IArchiveFormat
 
             if (options.Encryption?.Password != null)
             {
-                _log.Debug("Encryption enabled for Zstandard save, algorithm {Algorithm}", options.Encryption.Algorithm);
+                _log.Debug("Encryption enabled for Snappy save, algorithm {Algorithm}", options.Encryption.Algorithm);
                 var encOpts = new EncryptionOptions
                 {
                     Password = options.Encryption.Password,
@@ -102,54 +97,36 @@ public class ZstdEngine : IArchiveFormat
                 encryptOnDispose = true;
             }
 
-            var level = MapLevel(options.Level);
-            _log.Debug("Zstandard compression level set to {Level}", level);
-
             foreach (var node in archive.Vfs.Root.Children)
             {
                 ct.ThrowIfCancellationRequested();
-                if (node.Type == Filesystem.NodeType.File)
+                if (node.Type is not Filesystem.NodeType.File) continue;
+
+                await using var content = node.OpenRead();
+                using var ms = new MemoryStream();
+                await content.CopyToAsync(ms, ct).ConfigureAwait(false);
+                var raw = ms.ToArray();
+                var compressed = Snappy.Sharp.Snappy.Compress(raw);
+                await writeStream.WriteAsync(compressed, ct).ConfigureAwait(false);
+
+                progress?.Report(new ProgressReport
                 {
-                    await using var content = node.OpenRead();
-                    using var ms = new MemoryStream();
-                    await content.CopyToAsync(ms, ct).ConfigureAwait(false);
-
-                    var raw = ms.ToArray();
-                    using var compressor = new Compressor(new ZstdNet.CompressionOptions(level));
-                    var compressed = compressor.Wrap(raw);
-                    await writeStream.WriteAsync(compressed, ct).ConfigureAwait(false);
-
-                    progress?.Report(new ProgressReport
-                    {
-                        CurrentFile = node.Name,
-                        FilesProcessed = 1,
-                        TotalFiles = 1,
-                        CurrentOperation = "Compressing",
-                    });
-                }
+                    CurrentFile = node.Name,
+                    FilesProcessed = 1,
+                    TotalFiles = 1,
+                    CurrentOperation = "Compressing",
+                });
             }
 
             if (encryptOnDispose)
                 writeStream.Dispose();
 
-            _log.Information("Saved Zstandard archive to stream");
+            _log.Information("Saved Snappy archive to stream");
         }
         catch (Exception ex)
         {
-            _log.Error(ex, "Failed to save Zstandard archive");
+            _log.Error(ex, "Failed to save Snappy archive");
             throw;
         }
     }
-
-    private static int MapLevel(CompressionLevel level) => level switch
-    {
-        CompressionLevel.Store => 0,
-        CompressionLevel.Fastest => 1,
-        CompressionLevel.Fast => 3,
-        CompressionLevel.Normal => 5,
-        CompressionLevel.Maximum => 7,
-        CompressionLevel.Ultra => 9,
-        CompressionLevel.Insane => 10,
-        _ => 5,
-    };
 }

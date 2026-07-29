@@ -21,5 +21,8 @@ build/out/
 *.cache
 appsettings.Development.json
 
-# Agent memory (opt-in commit)
-AGENTS.md
+session.txt
+
+# Test temp
+test_tmp/
+

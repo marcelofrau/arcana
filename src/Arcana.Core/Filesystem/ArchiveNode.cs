@@ -12,13 +12,25 @@ public class ArchiveNode
     public List<ArchiveNode> Children { get; set; } = new();
     public DateTime LastModified { get; set; }
 
+    public Func<Stream>? ContentFactory { get; set; }
+
     public Stream OpenRead()
     {
-        throw new NotImplementedException("ArchiveNode.OpenRead");
+        var stream = ContentFactory?.Invoke()
+            ?? throw new InvalidOperationException($"No content available for '{FullPath}'");
+        if (stream.CanSeek)
+            stream.Position = 0;
+        return stream;
     }
 
     public Stream OpenWrite()
     {
-        throw new NotImplementedException("ArchiveNode.OpenWrite");
+        var ms = new MemoryStream();
+        ContentFactory = () =>
+        {
+            ms.Position = 0;
+            return ms;
+        };
+        return ms;
     }
 }

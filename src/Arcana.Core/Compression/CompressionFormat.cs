@@ -15,5 +15,12 @@ public enum CompressionFormat
     TarGz,
     TarBz2,
     TarXz,
-    TarZstd
+    TarZstd,
+    Rar,
+    Ace,
+    Arj,
+    Cab,
+    Lzh,
+    Hawkynt,
+    Snappy
 }

@@ -87,3 +87,21 @@
 **Context**: Each compression format has unique parameters and capabilities.
 **Decision**: Each format implements `IArchiveFormat`. Engine selection via factory + options. New formats add a new class + registration.
 **Consequences**: Easy to add new formats. Consistent API across formats with different capabilities.
+
+---
+
+## ADR-0011: Standalone Compression Formats (GZip, BZip2, Xz, Brotli, LZ4, LZMA, Snappy)
+
+**Status**: Superseded — all implemented in v0.2.x
+**Context**: Standalone compressors (single-stream, no metadata, no multi-file) were initially deemed low-value since TarEngine already handles `.tar.gz`, `.tar.bz2`, `.tar.xz`, `.tar.zst`.
+**Original Decision**: Skip all standalone engines.
+**Reversal**: Implemented all 7 engines plus Snappy. Rationale: (1) CLI users expect `arcana extract file.gz` to work, (2) SharpCompress provides readers/writers for all of them with minimal code (~30 lines each), (3) effort-to-value ratio inverted once the pattern was established.
+**Engines implemented**:
+- BrotliEngine (.br) — System.IO.Compression
+- GzipEngine (.gz) — SharpCompress
+- BZip2Engine (.bz2) — SharpCompress
+- XzEngine (.xz) — SharpCompress
+- LzmaEngine (.lzma) — SharpCompress
+- Lz4Engine (.lz4) — K4os.Compression.LZ4
+- SnappyEngine (.snappy) — Snappy.Sharp
+**Consequences**: All standalone formats can be compressed/extracted. ZPAQ remains unsupported (no mature C# library).

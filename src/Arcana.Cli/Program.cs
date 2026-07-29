@@ -1,4 +1,7 @@
 ﻿using System.CommandLine;
+using System.CommandLine.Parsing;
+using Arcana.Core.Logging;
+using Serilog;
 
 namespace Arcana.Cli;
 
@@ -6,7 +9,17 @@ public class Program
 {
     public static async Task<int> Main(string[] args)
     {
+        LogConfig.Init();
+
+        if (args.Any(a => a == "--no-color"))
+            Output.SetNoColor(true);
+
+        var noColorOpt = new Option<bool>("--no-color") { Description = "Disable colored output", Recursive = true };
+        var logLevelOpt = new Option<string>("--log-level") { Description = "Log level: trace, debug, info, warn, error, fatal" };
+
         var rootCommand = new RootCommand("Arcana — Modern, cross-platform compression toolkit");
+        rootCommand.Add(noColorOpt);
+        rootCommand.Add(logLevelOpt);
 
         rootCommand.Add(Commands.CompressCommand.Create());
         rootCommand.Add(Commands.ExtractCommand.Create());
@@ -17,6 +30,9 @@ public class Program
         rootCommand.Add(Commands.ConvertCommand.Create());
         rootCommand.Add(Commands.BenchmarkCommand.Create());
 
-        return await rootCommand.Parse(args).InvokeAsync();
+        var result = await rootCommand.Parse(args).InvokeAsync();
+
+        Log.CloseAndFlush();
+        return result;
     }
 }

@@ -5,21 +5,21 @@ using FluentAssertions;
 
 namespace Arcana.Core.Tests.Compression;
 
-public class ZipEngineTests
+public class TarEngineTests
 {
-    private readonly ZipEngine _sut = new();
+    private readonly TarEngine _sut = new();
     private static readonly byte[] Lorem = "Lorem ipsum dolor sit amet"u8.ToArray();
 
     [Fact]
-    public void Name_ShouldReturnZip()
+    public void Name_ShouldReturnTar()
     {
-        _sut.Name.Should().Be("ZIP");
+        _sut.Name.Should().Be("Tar");
     }
 
     [Fact]
-    public void Extension_ShouldReturnDotZip()
+    public void Extension_ShouldReturnDotTar()
     {
-        _sut.Extension.Should().Be(".zip");
+        _sut.Extension.Should().Be(".tar");
     }
 
     [Fact]
@@ -40,15 +40,23 @@ public class ZipEngineTests
         _sut.SupportsSolid.Should().BeFalse();
     }
 
-    [Fact]
-    public void ArchiveFactory_GetFormat_WithZip_ShouldReturnZipEngine()
+    [Theory]
+    [InlineData(CompressionFormat.Tar, ".tar")]
+    [InlineData(CompressionFormat.TarGz, ".tar.gz")]
+    [InlineData(CompressionFormat.TarBz2, ".tar.bz2")]
+    [InlineData(CompressionFormat.TarXz, ".tar.xz")]
+    [InlineData(CompressionFormat.TarZstd, ".tar.zst")]
+    public void ArchiveFactory_GetFormat_ShouldReturnTarEngine(CompressionFormat format, string extension)
     {
-        var format = ArchiveFactory.GetFormat(CompressionFormat.Zip);
-        format.Should().BeOfType<ZipEngine>();
+        var fromEnum = ArchiveFactory.GetFormat(format);
+        fromEnum.Should().BeOfType<TarEngine>();
+
+        var fromExt = ArchiveFactory.GetFormatFromExtension(extension);
+        fromExt.Should().BeOfType<TarEngine>();
     }
 
     [Fact]
-    public void SaveAndOpen_WithSingleFile_ShouldRoundTrip()
+    public void SaveAndOpen_Tar_WithSingleFile_ShouldRoundTrip()
     {
         using var output = new MemoryStream();
         var archive = CreateArchive(new Dictionary<string, byte[]>
@@ -56,10 +64,80 @@ public class ZipEngineTests
             ["hello.txt"] = "Hello World"u8.ToArray(),
         });
 
-        _sut.Save(archive, output, new CompressionOptions { Format = CompressionFormat.Zip });
+        _sut.Save(archive, output, new CompressionOptions { Format = CompressionFormat.Tar });
 
         output.Position = 0;
-        var opened = _sut.Open("test.zip", output, AccessMode.Read);
+        var opened = _sut.Open("test.tar", output, AccessMode.Read);
+
+        opened.Entries.Should().HaveCount(1);
+        opened.Entries[0].Path.Should().Be("hello.txt");
+        opened.Entries[0].Size.Should().Be(11);
+    }
+
+    [Fact]
+    public void SaveAndOpen_TarGz_WithSingleFile_ShouldRoundTrip()
+    {
+        using var output = new MemoryStream();
+        var archive = CreateArchive(new Dictionary<string, byte[]>
+        {
+            ["hello.txt"] = "Hello World"u8.ToArray(),
+        });
+
+        _sut.Save(archive, output, new CompressionOptions { Format = CompressionFormat.TarGz });
+
+        output.Position = 0;
+        var opened = _sut.Open("test.tar.gz", output, AccessMode.Read);
+
+        opened.Entries.Should().HaveCount(1);
+        opened.Entries[0].Path.Should().Be("hello.txt");
+        opened.Entries[0].Size.Should().Be(11);
+    }
+
+    [Fact]
+    public void SaveAndOpen_TarBz2_WithSingleFile_ShouldRoundTrip()
+    {
+        using var output = new MemoryStream();
+        var archive = CreateArchive(new Dictionary<string, byte[]>
+        {
+            ["hello.txt"] = "Hello World"u8.ToArray(),
+        });
+
+        _sut.Save(archive, output, new CompressionOptions { Format = CompressionFormat.TarBz2 });
+
+        output.Position = 0;
+        var opened = _sut.Open("test.tar.bz2", output, AccessMode.Read);
+
+        opened.Entries.Should().HaveCount(1);
+        opened.Entries[0].Path.Should().Be("hello.txt");
+        opened.Entries[0].Size.Should().Be(11);
+    }
+
+    [Fact]
+    public void Save_TarXz_ShouldThrowNotSupported()
+    {
+        using var output = new MemoryStream();
+        var archive = CreateArchive(new Dictionary<string, byte[]>
+        {
+            ["hello.txt"] = "Hello World"u8.ToArray(),
+        });
+
+        var act = () => _sut.Save(archive, output, new CompressionOptions { Format = CompressionFormat.TarXz });
+        act.Should().Throw<NotSupportedException>();
+    }
+
+    [Fact]
+    public void SaveAndOpen_TarZstd_WithSingleFile_ShouldRoundTrip()
+    {
+        using var output = new MemoryStream();
+        var archive = CreateArchive(new Dictionary<string, byte[]>
+        {
+            ["hello.txt"] = "Hello World"u8.ToArray(),
+        });
+
+        _sut.Save(archive, output, new CompressionOptions { Format = CompressionFormat.TarZstd });
+
+        output.Position = 0;
+        var opened = _sut.Open("test.tar.zst", output, AccessMode.Read);
 
         opened.Entries.Should().HaveCount(1);
         opened.Entries[0].Path.Should().Be("hello.txt");
@@ -77,10 +155,10 @@ public class ZipEngineTests
             ["c.txt"] = "gamma"u8.ToArray(),
         });
 
-        _sut.Save(archive, output, new CompressionOptions { Format = CompressionFormat.Zip });
+        _sut.Save(archive, output, new CompressionOptions { Format = CompressionFormat.Tar });
 
         output.Position = 0;
-        var opened = _sut.Open("test.zip", output, AccessMode.Read);
+        var opened = _sut.Open("test.tar", output, AccessMode.Read);
 
         opened.Entries.Should().HaveCount(3);
         opened.Entries.Select(e => e.Path).Should().BeEquivalentTo("a.txt", "b.txt", "c.txt");
@@ -92,10 +170,10 @@ public class ZipEngineTests
         using var output = new MemoryStream();
         var archive = CreateArchiveWithDirs();
 
-        _sut.Save(archive, output, new CompressionOptions { Format = CompressionFormat.Zip });
+        _sut.Save(archive, output, new CompressionOptions { Format = CompressionFormat.Tar });
 
         output.Position = 0;
-        var opened = _sut.Open("test.zip", output, AccessMode.Read);
+        var opened = _sut.Open("test.tar", output, AccessMode.Read);
 
         opened.Entries.Should().HaveCount(4);
         opened.Entries.Any(e => e.Path == "sub/nested.txt").Should().BeTrue();
@@ -115,10 +193,10 @@ public class ZipEngineTests
             ["data.bin"] = binary,
         });
 
-        _sut.Save(archive, output, new CompressionOptions { Format = CompressionFormat.Zip });
+        _sut.Save(archive, output, new CompressionOptions { Format = CompressionFormat.Tar });
 
         output.Position = 0;
-        var opened = _sut.Open("test.zip", output, AccessMode.Read);
+        var opened = _sut.Open("test.tar", output, AccessMode.Read);
 
         var node = opened.Vfs.FindNode("/data.bin");
         node.Should().NotBeNull();
@@ -134,16 +212,16 @@ public class ZipEngineTests
         using var output = new MemoryStream();
         var archive = new Archive
         {
-            Format = CompressionFormat.Zip,
+            Format = CompressionFormat.Tar,
             FormatEngine = _sut,
             Entries = Array.Empty<ArchiveEntry>(),
             Vfs = new VirtualFileSystem(),
         };
 
-        _sut.Save(archive, output, new CompressionOptions { Format = CompressionFormat.Zip });
+        _sut.Save(archive, output, new CompressionOptions { Format = CompressionFormat.Tar });
 
         output.Position = 0;
-        var opened = _sut.Open("empty.zip", output, AccessMode.Read);
+        var opened = _sut.Open("empty.tar", output, AccessMode.Read);
 
         opened.Entries.Should().BeEmpty();
     }
@@ -151,8 +229,8 @@ public class ZipEngineTests
     [Fact]
     public void Open_OnInvalidStream_ShouldThrow()
     {
-        using var stream = new MemoryStream("not a zip file"u8.ToArray());
-        var act = () => _sut.Open("bad.zip", stream, AccessMode.Read);
+        using var stream = new MemoryStream("not a tar file"u8.ToArray());
+        var act = () => _sut.Open("bad.tar", stream, AccessMode.Read);
         act.Should().Throw<Exception>();
     }
 
@@ -176,8 +254,8 @@ public class ZipEngineTests
 
         return new Archive
         {
-            Format = CompressionFormat.Zip,
-            FormatEngine = new ZipEngine(),
+            Format = CompressionFormat.Tar,
+            FormatEngine = new TarEngine(),
             Entries = entries,
             Vfs = vfs,
         };
@@ -193,8 +271,8 @@ public class ZipEngineTests
 
         return new Archive
         {
-            Format = CompressionFormat.Zip,
-            FormatEngine = new ZipEngine(),
+            Format = CompressionFormat.Tar,
+            FormatEngine = new TarEngine(),
             Entries = new List<ArchiveEntry>
             {
                 new() { Path = "sub/nested.txt", Name = "nested.txt", Size = 6 },

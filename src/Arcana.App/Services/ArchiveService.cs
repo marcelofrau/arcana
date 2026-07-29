@@ -9,7 +9,7 @@ public class ArchiveService
 
     public async Task<Archive> OpenAsync(string path, CancellationToken ct = default)
     {
-        CurrentArchive = await ArchiveFactory.OpenAsync(path, AccessMode.Read, ct);
+        CurrentArchive = await ArchiveFactory.OpenAsync(path, mode: AccessMode.Read, ct: ct);
         return CurrentArchive;
     }
 
