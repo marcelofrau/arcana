@@ -32,6 +32,19 @@
 
 ---
 
+## Why Arcana?
+
+| Feature | **Arcana** | WinRAR | 7-Zip | PeaZip |
+|---|---|---|---|---|
+| Cross-platform (Win/macOS/Linux) | ✅ Native | ❌ Windows only | ⚠️ Windows + community builds | ✅ |
+| Modern formats (Zstandard, Brotli, LZ4, Snappy) | ✅ | ⚠️ Partial | ⚠️ Plugins | ⚠️ Partial |
+| Legacy formats (RAR, ACE, ARJ, CAB, LZH) | ✅ | ⚠️ RAR only | ⚠️ Partial | ⚠️ Partial |
+| Hidden/embedded archives (MSIX, MSI, EXE, APPX, CHM, WIM, EPUB, game packs) | ✅ 240+ via fallback | ❌ | ⚠️ Partial | ⚠️ Partial |
+| Modern authenticated encryption (AES-256-GCM) | ✅ | ❌ AES-CBC only | ❌ AES-CBC only | ❌ AES-CBC only |
+| Internal preview (text / image / hex) | ✅ | ⚠️ Viewer | ❌ | ✅ |
+| Built-in tools (split, join, hash, convert) | ✅ | ⚠️ Partial | ❌ | ⚠️ Partial |
+| Open source | ✅ GPLv3 | ❌ Proprietary | ✅ LGPL | ✅ LGPL |
+
 ## ✨ Highlights
 
 **Explore like a pro.** Folders in the sidebar, files in the list, double-click to navigate, enter/back to go in and out. Classic explorer-style navigation, done right.
@@ -51,7 +64,7 @@
 | ZIP | ✅ | ✅ | ✅ |
 | 7z | ✅ | ✅ | ✅ |
 | Zstandard | ✅ | ✅ | — |
-| Tar (+ gz / bz2 / xz / zst) | ✅ | ✅ | — |
+| Tar (+ gz / bz2 / xz / zst) | ✅ | ⚠️ (`.tar.xz` read-only) | — |
 | GZip | ✅ | ✅ | — |
 | BZip2 | ✅ | ✅ | — |
 | XZ | ✅ | ✅ | — |
@@ -65,7 +78,27 @@
 | CAB | ✅ | — | — |
 | LZH / LHA | ✅ | — | — |
 
-Plus a **fallback engine** that extends read support to 240+ archive formats.
+> Encryption on ZIP/7z uses Arcana's own AES-256-GCM container. Files encrypted with Arcana are read by Arcana (not by WinZip or 7-Zip).
+
+### Open anything — formats that don't look like archives
+
+Arcana's fallback engine (Hawkynt `FormatRegistry`, 240+ descriptors) detects archives by **content, not extension**. Many files that look like ordinary apps, documents or packages are actually archives underneath:
+
+| Looks like… | Actually… |
+|---|---|
+| `.msix`, `.appx` | Windows app packages (ZIP/OPC-based) |
+| `.msi` | Windows Installer database (OLE/COM compound, embedded CAB) |
+| `.exe` | Self-extracting archives & installers (NSIS, Inno Setup, SFX ZIP, UPX, packers) |
+| `.esd`, `.wim` | Windows imaging / update containers |
+| `.docx`, `.xlsx`, `.pptx`, `.odt`, `.vsdx` | Office documents (ZIP/OPC-based) |
+| `.epub`, `.cbz`, `.maff` | E-books and comic books (ZIP-based) |
+| `.chm` | Compiled HTML help |
+| `.apk`, `.ipa`, `.aab`, `.xpi`, `.nupkg`, `.jar`, `.war`, `.ear` | Mobile / browser / NuGet / Java packages |
+| `.deb`, `.rpm`, `.appimage`, `.snap`, `.cpio`, `.ar` | Linux packages and archives |
+| `.pak`, `.wad`, `.mpq`, `.vpk`, `.u8`, `.narc`, `.nds` | Game data packs (Quake, Doom, Warcraft III, Source, etc.) |
+| `.sit`, `.sitx`, `.zoo`, `.sqx`, `.uharc`, `.arc`, `.lzh`, `.kwaj`, `.dms`, `.yenc` | Legacy & retro formats |
+
+Extraction is best-effort and **read-only**: these descriptors are auto-detected, so quality varies per format. If you work with a specific one heavily, [check its descriptor](docs/compression/FORMATS.md) and test it.
 
 ## 🔐 Security
 
@@ -98,8 +131,11 @@ dotnet run --project src/Arcana.Cli -- --help
 ### CLI examples
 
 ```shell
-# Compress with Zstandard
-arcana compress release/ --format zstd --output release.arc
+# Compress into ZIP
+arcana compress release/ -o release.zip
+
+# Convert to another format (zip → 7z)
+arcana convert release.zip -f 7z -o release.7z
 
 # Extract a 7z (or any supported archive)
 arcana extract backup.7z
@@ -119,9 +155,6 @@ arcana hash setup.exe --algorithm sha256
 # Verify a hash
 arcana hash setup.exe --algorithm sha256 --verify "ab12cd34..."
 
-# Convert formats
-arcana convert backup.7z --format zip
-
 # Benchmark engines
 arcana benchmark
 ```
@@ -137,18 +170,25 @@ dotnet test  src/Arcana.slnx   # 145 tests
 
 | Document | Description |
 |---|---|
+| [Docs index](docs/README.md) | Full documentation index |
 | [Architecture](docs/ARCHITECTURE.md) | System design, layers, data flow |
+| [GUI plan](docs/GUI_PLAN.md) | GUI design, controls, icon themes |
 | [Specifications](docs/SPECS.md) | Functional and non-functional requirements |
 | [Roadmap](docs/ROADMAP.md) | Milestones and timeline |
 | [Formats](docs/compression/FORMATS.md) | Supported compression formats details |
+| [Security](docs/compression/CIPHERS.md) | Encryption and key-derivation design |
+| [CLI reference](docs/api/CLI_API.md) | Commands, arguments, examples |
+| [Core API](docs/api/CORE_API.md) | Public API of Arcana.Core |
 | [Contributing](docs/contributing/CODING_STANDARDS.md) | Coding guidelines and PR workflow |
 
 ## 🧭 Roadmap
 
-- GUI polish: drag-and-drop, in-app archive editing
+- In-app archive editing (rename, delete, add files)
+- Drag-and-drop support
 - **ChaCha20-Poly1305** encryption alongside AES-GCM
 - GitHub Actions CI
-- Image preview & conversion
+- Image conversion (converter tool exists as a stub)
+- Distribution packages (winget, brew, apt)
 
 ## 📄 License
 

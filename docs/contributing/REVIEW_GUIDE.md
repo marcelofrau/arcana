@@ -21,7 +21,7 @@
 
 ### Security
 
-- [ ] Are passwords/keys stored in `SecureString` or `byte[]` (not `string`)?
+- [ ] Are passwords/keys stored in `SecureString` or `byte[]` (not `string`)? ⚠️ Currently passwords flow as `string` — planned hardening
 - [ ] Is sensitive data zeroed after use?
 - [ ] Are encryption parameters included in the auth tag?
 - [ ] Is input validation in place for paths and filenames?
@@ -69,7 +69,7 @@ flowchart LR
 
 ### CLI (`Arcana.Cli`)
 
-- Exit codes match documented values
+- Exit codes are 0/1 today; keep them documented and consistent as the scheme grows
 - Error messages are actionable
 - Help text is complete and accurate
 - Argument validation before calling Core
@@ -102,6 +102,6 @@ flowchart LR
 For new C# files in `src/`:
 
 ```csharp
-// Copyright (C) 2024 Marcelo Frau
+// Copyright (C) 2026 Marcelo Frau
 // SPDX-License-Identifier: GPL-3.0-or-later
 ```

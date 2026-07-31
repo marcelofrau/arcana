@@ -1,205 +1,165 @@
-# Arcana GUI — Plano de Implementação
+# Arcana GUI — Implementation Guide
 
-Referência mestra da interface gráfica. Fases, decisões, specs de controles e arquitetura.
+Master reference for the graphical interface: controls, view models, services, icon themes, and current implementation status.
 
-## 1. Conceito
+## 1. Concept
 
-**"Alma clássica, pele moderna"**
+**"Classic soul, modern skin."**
 
-Fundir a nostalgia dos arquivadores clássicos (WinRAR/WinZip) com design moderno. Não é um skin retrô — é estrutura familiar (two-pane, colunas, status bar, wizards, atalhos) embalada em visual dark moderno com accent violeta.
+Merge the nostalgia of classic archivers (WinRAR/WinZip) with modern design. Not a retro skin — a familiar structure (two-pane, columns, status bar, wizards, shortcuts) wrapped in a modern dark visual with a violet accent.
 
-| Elemento | Origem | Tratamento |
+| Element | Origin | Treatment |
 |---|---|---|
-| Two-pane (árvore + tabela) | WinRAR | Mantido, árvore colapsável |
-| Colunas Name/Size/Packed/Ratio/Type/Modified | WinRAR | Mantidas, sortáveis, com ícones |
-| Status bar "N files · X MB" | WinRAR | Mantida + progresso |
-| Toolbar de ações | WinRAR | Flat, ícones via provider (temas) |
-| Wizards passo-a-passo | WinZip | StepperDialog moderno |
-| Atalhos (F2, Del, Enter, Ctrl+A) | WinRAR | Mantidos |
-| Dark mode, accent, animações | Moderno | Nativos |
-| Command palette, preview inline | Moderno | Nativos |
+| Two-pane (tree + table) | WinRAR | Kept; collapsible tree |
+| Columns Name/Size/Packed/Ratio/Type/Modified | WinRAR | Kept; sortable, with icons |
+| Status bar "N files · X MB" | WinRAR | Kept + progress |
+| Toolbar of actions | WinRAR | Flat, icons via providers |
+| Shortcuts (Enter, Back, Del, Ctrl+A, F2) | WinRAR | Kept |
+| Dark mode, accent, animations | Modern | Native |
 
-## 2. Identidade visual
+## 2. Visual Identity
 
-### Paleta dark (primária)
-
-| Token | Valor | Uso |
+| Token | Value | Use |
 |---|---|---|
-| `AppBackground` | `#16161E` | fundo da janela |
-| `AppSurface` | `#1E1E28` | árvore, tabela, painéis |
-| `AppSurfaceRaised` | `#262631` | toolbar, status bar, header |
-| `AppBorder` | `#33334A` | bordas, separadores |
-| `AppTextPrimary` | `#E4E4EE` | texto principal |
-| `AppTextSecondary` | `#9A9AB0` | texto secundário |
-| `AppAccent` | `#8B5CF6` | violeta profundo (seleção, foco, links) |
-| `AppAccentHover` | `#9F7AFF` | hover do accent |
-| `AppSuccess` | `#34D399` | ok / verificado |
-| `AppWarning` | `#FBBF24` | aviso |
-| `AppError` | `#F87171` | erro |
+| Theme | FluentTheme, `RequestedThemeVariant="Dark"` | window / controls |
+| Accent | `#8B5CF6` (SystemAccentColor) | selection, focus, links |
+| DataGrid | Dark brush overrides in `App.axaml` | keeps the grid readable in dark mode |
 
-### Paleta light (fase futura)
+Typography and density come from the Fluent theme; rows use compact sizing. A light palette is a future item (see [ROADMAP](ROADMAP.md)).
 
-`#F7F7FB` fundo, `#FFFFFF` surface, accent violeta igual.
-
-### Tipografia
-- Segoe UI Variable (Windows) / Inter (Avalonia.Fluid default) — fallback automático
-- Densidade compacta: rows 28px (espírito WinRAR, respiro moderno)
-
-### Ícones
-- **Default**: set moderno flat 24px (provider embutido)
-- **WinRAR themes**: tamanho nativo do tema, zero escalonamento (ver seção 5)
-
-## 3. Layout — MainWindow (two-pane)
+## 3. Layout — MainWindow
 
 ```
 ┌───────────────────────────────────────────────────────────────┐
-│ Toolbar: Open │ Add │ Extract │ Test │ View │ Delete │ Search │ Info │
-│ Breadcrumb: Arcana › archive.zip › folder/    [filter box]      │
-├──────────────┬────────────────────────────────┬────────────────┤
-│ Árvore       │ DataGrid (colunas WinRAR)      │ Preview panel  │
-│ de pastas    │ Name|Size|Packed|Ratio|Type|   │ (toggle, 320px)│
-│ (240px)      │ Modified — sortável            │ text/hex/img   │
-│ splitter     │                                │ splitter       │
-├──────────────┴────────────────────────────────┴────────────────┤
-│ Status bar: "12 files · 3.4 MB · 2 sel (1.2 MB)"  [progress bar]│
+│ Menu: File | Commands | Tools | Favorites | Options | Help    │
+│ Toolbar (ItemsControl of ToolBarButton)                        │
+│ Breadcrumb: Arcana › archive.zip › folder/   [filter box]      │
+├──────────────┬──────────────────────────────┬─────────────────┤
+│ FolderTree   │ DataGrid (WinRAR columns)    │ PreviewPanel    │
+│ (240px)      │ Name|Size|Packed|Ratio|Type| │ (320px, toggle) │
+│ folders only │ Modified — sortable          │ text/image/hex  │
+├──────────────┴──────────────────────────────┴─────────────────┤
+│ Status bar: "N files · X MB"  [progress]                      │
 └───────────────────────────────────────────────────────────────┘
 ```
 
-- Title bar nativa do SO (sem custom chrome)
-- Splitter entre árvore e tabela; splitter antes do preview
-- Breadcrumb = caminho dentro do archive (root › dirs › file)
-- Filter box filtra entries da tabela por nome
+Grid columns: `240, 4, *, 4, 320` — folder tree, splitter, center pane, splitter, preview. The tree and preview panes can be hidden (FileListVisible / CommentsVisible toggles).
 
-## 4. Controles (`src/Arcana.App/Controls/`)
+## 4. Controls (`src/Arcana.App/Controls/`)
 
-| Control | Tipo | Spec |
+| Control | Type | Spec |
 |---|---|---|
-| `ToolBar.axaml` | UserControl | Row de botões ícone+texto (opcional texto), bound a `IconKey`, altura = tamanho nativo do tema, commands do MainViewModel |
-| `StatusBar.axaml` | UserControl | TextBlock contagem + ProgressBar (indeterminado durante ops) |
-| `FileTable.axaml` | UserControl + DataGrid | Colunas: Name (ícone+texto), Size, Packed, Ratio (%), Type, Modified. Sorting por coluna. Seleção múltipla. ContextMenu (Extract Here, Extract To…, Open, View, Test, Rename, Delete) |
-| `FolderTree.axaml` | UserControl + TreeView | `TreeDataTemplate` → `ArchiveNode`, ícone pasta/arquivo, seleção navega breadcrumb + filtra tabela |
-| `PreviewPanel.axaml` | UserControl | Header "Preview" + botão fechar. Content switch por tipo: texto (syntax-ish), hex dump, imagem (codec nativo). Edição inline de texto (fase Forge) |
-| `StepperDialog.axaml` | Window template | Shell de wizard: coluna esquerda com passos numerados (estilo WinZip), área de conteúdo, barra inferior Back/Next/Finish/Cancel. Título + logo (tema) |
+| `FolderTree` | UserControl + TreeView | `ItemsSource = Archive.TreeNodes`, `SelectedItem = Archive.CurrentNode` (TwoWay). Template binds `ChildFolders` — **folders only**. Root auto-expands; `SelectCurrentNode` scrolls selection into view |
+| `FileTable` | UserControl + DataGrid | Columns: Name (icon + name), Size, Packed, Ratio (%), Type, Modified. Sorting via `SortMemberPath`. Extended selection, double-tap opens, `OnSelectAllRequested` for Ctrl+A. No context menu yet |
+| `PreviewPanel` | UserControl | Header (file name + info), loading bar. Content switch: text (`Kind=Text`), image (`Kind=Image`), hex dump, or binary placeholder (icon + name + "Binary Preview" button that loads hex on demand) |
+| Toolbar / StatusBar | Inline in MainWindow | Toolbar: `ItemsControl` over `ToolBarButton` items (icon, label, tooltip, command). Status bar: text + `ProgressBar` bound to `IsBusy`/`BusyText` |
 
-## 5. Icon engine (temas WinRAR)
+### Keyboard shortcuts
 
-### Conceito
-Temas WinRAR = arquivos `.theme.rar` (RAR archive) com `winrar_theme_description.txt` + gráficos. Já temos engine RAR (`RarEngine`/`ArchiveFactory` detecta magic `52 61 72 21 1A 07`). Suportar formato = abrir tema que o usuário instala. **Não embutir temas no repo** (copyright de cada autor).
-
-### Slots (`IconKey`)
-`Open, Add, Extract, ExtractTo, Test, View, Delete, Find, Info, File, Rar, WizardLogo, SortUp, SortDown`
-
-### Mapeamento tema → UI
-
-| Arquivo do tema | Slot | Formato |
-|---|---|---|
-| `Toolbar/Add.bmp` | Add | BMP/PNG — também define `ToolbarSize` (dimensões) |
-| `Toolbar/Extract.bmp` | Extract | BMP/PNG |
-| `Toolbar/ExtractTo.bmp` | ExtractTo | BMP/PNG |
-| `Toolbar/Test.bmp` | Test | BMP/PNG |
-| `Toolbar/View.bmp` | View | BMP/PNG |
-| `Toolbar/Find.bmp` | Find | BMP/PNG |
-| `Toolbar/Info.bmp` | Info | BMP/PNG |
-| `Toolbar/Delete.bmp` | Delete | BMP/PNG |
-| `Toolbar/Convert.bmp` | (futuro) | BMP/PNG |
-| `Toolbar/Benchmark.bmp` | (futuro) | BMP/PNG |
-| `File.ico` | File | ICO |
-| `RAR.ico` | Rar (ícone janela) | ICO |
-| `SortUp/Down.bmp` | SortUp/SortDown | BMP (degrade opcional) |
-| `WizardLogo.bmp` | WizardLogo | BMP |
-| `winrar_theme_description.txt` | title/about | texto ASCII |
-
-### Regras
-- **Zero escalonamento**: ícones renderizam no tamanho nativo do bitmap. Tema 64x64 → toolbar 64px.
-- `Add.bmp` presente = tamanho da toolbar (docs RARLAB: auto-detect via Add.bmp)
-- Slots ausentes → fallback pro provider default (moderno 24px)
-- BMP 24-bit: chroma-key (preto default, `background=255` no desc → branco) para transparência
-- `.cur` (cursors): não suportado (Avalonia não decodifica) — pulado
-
-### Arquitetura
-```
-IIconProvider.GetImage(IconKey) : IImage?
-├─ DefaultIconProvider   — set moderno embutido (geometrias/paths 24px)
-└─ WinRarThemeProvider   — carrega .theme.rar via ArchiveFactory, parseia desc,
-                           extrai bitmaps, ToolbarSize do Add.bmp
-IconThemeService         — singleton: varre %APPDATA%\Arcana\Themes,
-                           instala (copy), troca provider, notifica ThemeChanged
-```
-- Menu **Tools → Themes**: submenu com temas instalados + "Install Theme…" + "Open Themes Folder"
-- Pasta temas: `%APPDATA%\Arcana\Themes` (espelho `%APPDATA%\WinRAR\Themes`)
-
-## 6. ViewModels + Services
-
-### ViewModels
-| VM | Responsabilidade |
+| Key | Action |
 |---|---|
-| `MainViewModel` | Estado do archive, commands toolbar (Open/Add/Extract/Test/View/Delete/Search/Info), breadcrumb, filter, status, coordination |
-| `ArchiveViewModel` | Entries da tabela, seleção, sorting, current path |
-| `FileEntryItem` | Wrapper de `ArchiveEntry`+`ArchiveNode`: SizeText, PackedText, RatioText, ModifiedText, TypeText, IconKey/Image, IsDirectory |
-| `PreviewViewModel` | ContentType, TextContent, HexContent, ImageSource, CanEdit |
-| `ToolsViewModel` | Split/Join/Hash (wiring fase 4) |
-| `SettingsViewModel` | theme, language, default format/level, threads (fase 4) |
+| Enter / Double-click | Open selected entry (navigate or preview) |
+| Backspace | Navigate up |
+| Del | Delete selected (VFS dirty; GUI wiring pending) |
+| Ctrl+A | Select all rows |
+| Alt+Enter | Info dialog |
+
+## 5. Icon Engine
+
+### Icon keys (`IconKey`, 33 values)
+
+`Open, Add, Extract, Test, View, Delete, Find, Info, FileGeneric, FileArchive, FileImage, FileCode, FileMedia, FileDoc, Folder, Rar, SortUp, SortDown, Save, Close, Settings, Help, Split, Convert, Password, Rename, SelectAll, Compare, Favorite, Join, Hash, Optimize`
+
+### Providers
+
+```
+IIconProvider: Name, ToolbarSize, GetIcon(IconKey) : IImage?
+├─ DefaultIconProvider   — Material Design path data (vector DrawingImages), default fallback
+├─ PapirusIconProvider   — PNG assets (GPL-3.0, Papirus icon theme), ToolbarSize 48, DEFAULT
+└─ WinRarThemeProvider   — loads .theme.rar via ArchiveFactory, maps toolbar bitmaps
+```
+
+| Provider | Source | Size |
+|---|---|---|
+| Papirus (default) | bundled `Assets/Papirus/*.png` (GPL-3.0) | 48px |
+| Material | built-in vector paths | 24px |
+| WinRAR theme | user `.theme.rar` in `%APPDATA%\Arcana\Themes` | native to the theme |
+
+`IconThemeService` manages built-ins + installed themes; menu **Options → Icon Theme** lists `ThemeMenuItems`. `ThemeBitmapLoader` decodes BMP strips with magenta (`#FF00FF`) chroma-key → transparency. Window icon follows the active theme (`RAR.ico`/`File.ico`).
+
+`IconResolver` maps `ArchiveNode` → key (`root`→FileArchive, dir→Folder, else by extension: archive/image/media/code/doc maps).
+
+## 6. View Models + Services
+
+### View models
+
+| VM | Responsibility |
+|---|---|
+| `MainViewModel` | Toolbar commands, open/new/extract/test/delete/find/info, favorites, theme menu, `RunBusyAsync`, status text. Commands are `[RelayCommand]` |
+| `ArchiveViewModel` | `LoadArchive`, `TreeNodes`/`Entries`, nav history (back/up), `NavigateTo`, breadcrumb, filter (`ApplyFilter`), selection, `BuildEntries` (folders first, ordinal) |
+| `FileEntryItem` | Wraps an entry for the table: `Name`, `IsDirectory`, `Ext`, `TypeText`, `SizeText`, `PackedText`, `RatioText`, `ModifiedText`, sort values, `Icon` |
+| `PreviewViewModel` | `Show(node)`, `Clear`, `Kind` (Text/Image/Hex), `IsBinaryPlaceholder`, `LoadBinaryCommand`, `PlaceholderIcon` |
+| `ToolsViewModel` | Split / Join / Hash commands — **stub** (`Task.Delay(100)`, TODO) |
+| Dialog VMs | `InfoViewModel`, `SettingsViewModel`, `PasswordViewModel`, `PromptViewModel`, `ConvertViewModel`, `SplitFileViewModel`, `JoinFileViewModel`, `HashFileViewModel` — plain `ObservableObject` with `Confirmed` flag |
 
 ### Services
+
 | Service | API |
 |---|---|
-| `ArchiveService` | `OpenAsync(path)`, `SaveAsync(...)`, `ExtractAsync(dest, progress, ct)`, `TestAsync(progress, ct)`, `AddFiles(paths)`, `DeleteEntry(node)` |
-| `DialogService` | `PickOpenFileAsync()`, `PickOpenFilesAsync()`, `PickFolderAsync()`, `PickSaveFileAsync()` (StorageProvider) |
-| `PreviewService` | `DetectType(fileName)`, `LoadText(node)`, `LoadHex(node)`, `LoadImage(node)` |
-| `IconThemeService` | `InstalledThemes`, `Current`, `Install(path)`, `Apply(name)` |
-| `NavigationService` | (fase 2) breadcrumb, histórico |
+| `ArchiveService` | `OpenAsync`, `SaveAsync`, `ExtractAsync(dest, progress, ct)`, `TestAsync` (CRC32), `Close` |
+| `DialogService` | StorageProvider pickers (`PickArchiveAsync`, `PickThemeAsync`, `PickDirectoryAsync`, `PickFilesAsync`, `PickSaveArchiveAsync`, `PickSaveCopyAsync`) + dialogs (`ShowInfoAsync`, `ShowPromptAsync`, `ShowPasswordAsync`, `ShowSettingsAsync`, `ShowConvertAsync`, `ShowSplitFileAsync`, `ShowJoinFileAsync`, `ShowHashFileAsync`) |
+| `PreviewService` | `DetectKind` (text/image/hex), `LoadPreview`, `LoadText` (256 KiB cap), `LoadHex` (64 KiB cap), `LoadImage` (Bitmap, fallback hex) |
+| `SettingsService` | `%APPDATA%\Arcana\settings.json` — format, level, threads, parallel, log level |
+| `FavoritesService` | `%APPDATA%\Arcana\favorites.json` — pinned archives |
 
-### DI (App.axaml.cs)
-Singletons: `ArchiveService`, `DialogService`, `PreviewService`, `IconThemeService`. Transients: VMs.
+### DI (`App.axaml.cs`)
 
-## 7. Wizards (nostalgia-moderna, fase 2)
+Singletons: `ArchiveService`, `PreviewService`, `DialogService`, `SettingsService`, `FavoritesService`, `DefaultIconProvider`, `IconThemeService`. Transients: `MainViewModel`, `ArchiveViewModel`, `PreviewViewModel`, `ToolsViewModel`, `SettingsViewModel`. Dialog VMs are constructed inside `DialogService`.
 
-Shell `StepperDialog`: coluna esquerda passos numerados (1,2,3... com título), conteúdo central, barra Back/Next/Finish/Cancel. Logo do tema no topo.
+## 7. Dialogs
 
-| Wizard | Passos |
+| Dialog | Purpose |
 |---|---|
-| **New Archive** | 1. Formato (cards ZIP/7Z/ZST/TAR + nível) → 2. Arquivos (multi-pick + sumário) → 3. Opções (encrypt/password/split) → 4. Progresso |
-| **Extract** | 1. Destino (tree browser estilo "Extract To" WinRAR) → 2. Opções (overwrite, filter, paths) → 3. Progresso |
-| **Convert** | 1. Origem → 2. Formato alvo → 3. Destino → 4. Progresso |
-| **Test** | lista de arquivos com progresso rolando (2004 feel) |
+| Password | Capture + confirm password (`CanConfirm`: non-empty and match) |
+| Convert | Pick target format (zip / 7z / zstd) + level |
+| Split File | Part size presets (100 MB–4 GB) + HJSplit naming toggle |
+| Join File | First part, output path, part count |
+| Hash File | Algorithm (MD5 / SHA-1 / SHA-256 / SHA-512) |
+| Info | Title + message |
+| Prompt | Text input |
+| Settings | Defaults: format, level, log level |
 
-## 8. Fases
+## 8. Implementation Status
 
-### Fase 1 — Shell + tema + ícones (ATUAL)
-1. Pacotes: `Avalonia.Controls.DataGrid`; ícones (ver nota abaixo)
-2. Theme system: `Colors.axaml`, `Controls.axaml`, App.axaml `RequestedThemeVariant=Dark`
-3. Icon engine: `IconKey`, `IIconProvider`, `DefaultIconProvider`
-4. Icon engine WinRAR: `WinRarThemeProvider`, `IconThemeService`, menu Themes
-5. Controles: `ToolBar`, `StatusBar`, `FileTable`, `FolderTree`, `PreviewPanel`
-6. ViewModels/Services: `MainViewModel`, `ArchiveViewModel`, `FileEntryItem`, `ArchiveService` (Extract/Test), `DialogService`, `PreviewService`
-7. `MainWindow` two-pane completo
-8. Verificação: build + 137 tests + smoke (abrir .zip/.rar, navegar, extrair, testar, deletar, trocar tema)
+| Area | Status |
+|---|---|
+| Project scaffold, DI, MVVM toolkit | ✅ |
+| MainWindow: menu, toolbar, status bar | ✅ |
+| FolderTree (folders only, sync, expand) | ✅ |
+| FileTable (DataGrid, sorting, navigation) | ✅ |
+| PreviewPanel (text / image / hex / placeholder) | ✅ |
+| Dialogs (password, convert, split, join, hash, info, prompt, settings) | ✅ |
+| Icon themes (Papirus / Material / WinRAR) | ✅ |
+| Favorites | ✅ |
+| ArchiveService (open / extract / test / save) | ✅ |
+| Toolbar context menu (right-click) | ❌ |
+| Archive editing (rename / delete / add → GUI) | ❌ |
+| Drag & drop | ❌ |
+| Command palette (Ctrl+K) | ❌ |
+| ToolsViewModel wiring (split/join/hash in GUI) | ❌ stub |
+| Settings window wiring | ⚠️ dialog exists, Apply minimal |
+| Light theme | ❌ |
+| i18n (EN + PT-BR) | ❌ |
 
-> **Nota ícones**: avaliação de `Icons.Avalonia` pendente (busca NuGet inconclusiva). Fallback: geometrias hand-written (paths Feather-style MIT) no `DefaultIconProvider`. Decisão registrada conforme resultado da instalação.
+## 9. Verification Checklist
 
-### Fase 2 — Wizards
-`StepperDialog` + New Archive + Extract + Convert + Test. Logo do tema nos wizards.
-
-### Fase 3 — Moderno
-Command palette (Ctrl+K), preview inline completo (imagem via codec nativo), drag & drop (add/extrair), filter box reativo, recent archives, busca.
-
-### Fase 4 — Settings + polish
-Settings window (theme, language, defaults), light theme, Tools wired (split/join/hash reais), progress overlay com speed/ETA, shell extension (Windows).
-
-### Fase 5 — i18n
-EN + PT-BR, resource files, language switcher.
-
-## 9. Checklist de verificação
-
-- [ ] `dotnet build src/Arcana.slnx` 0 erros
-- [ ] `dotnet test src/Arcana.slnx` 137 verdes
-- [ ] Smoke: abrir `.zip` e `.rar` reais
-- [ ] Navegar árvore → breadcrumb sincroniza
-- [ ] Sort por coluna funciona
-- [ ] Extrair para pasta com progresso
-- [ ] Test archive passa/falha corretamente
-- [ ] Delete remove do VFS (dirty)
-- [ ] Instalar tema `.theme.rar` → toolbar troca tamanho nativo
-- [ ] Trocar tema sem crash; fallback pra slots ausentes
-- [ ] Dark mode consistente (menus, dialogs, splitter, scrollbar)
-- [ ] App sem warnings de binding (Output/Debug logs)
+- [x] `dotnet build src/Arcana.slnx` — 0 errors
+- [x] `dotnet test src/Arcana.slnx` — 145 tests green
+- [x] Smoke: open real `.zip` and `.rar`
+- [x] Navigate tree → breadcrumb syncs
+- [x] Column sorting works
+- [x] Preview text / image / hex placeholder
+- [x] Extract to folder with progress
+- [x] Theme switch without crash; fallback for missing slots
+- [ ] Delete removes from VFS (dirty) → GUI
+- [ ] App without binding warnings (Output/Debug logs)

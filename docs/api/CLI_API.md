@@ -4,60 +4,50 @@
 
 ```shell
 arcana [command] [options] [arguments]
+arcana --version   # implicit via System.CommandLine v2
+arcana --help
 ```
 
 ### Global Options
 
-| Option | Short | Description |
-|---|---|---|
-| `--version` | | Show version information |
-| `--help` | `-h` | Show help |
-| `--verbose` | `-v` | Verbose output |
-| `--quiet` | `-q` | Suppress output (exit code only) |
+| Option | Description |
+|---|---|
+| `--no-color` | Disable ANSI colors (Spectre.Console) — also detected pre-parse |
+| `--log-level <level>` | Serilog level (trace/debug/info/warning/error/fatal). ⚠️ Option is registered but currently **unused** by the CLI — logging stays at `Warning` |
+
+### Exit Codes
+
+| Code | Meaning |
+|---|---|
+| 0 | Success |
+| 1 | Error (exception in command, or validation failure) |
+
+There is no richer exit-code scheme yet. Several commands re-throw inside `Output.Status(...)`, which surfaces as an unhandled exception.
 
 ## Commands
 
 ### `arcana compress`
 
-Compress files and directories into an archive.
+Compress files/directories into a **ZIP** archive.
 
 ```shell
 arcana compress <source>... -o <output> [options]
 ```
 
-| Argument | Description |
-|---|---|
-| `source` | Files/directories to compress (one or more, glob supported) |
-
-| Option | Short | Default | Description |
+| Option | Alias | Default | Notes |
 |---|---|---|---|
-| `--output` | `-o` | (required) | Output archive path |
-| `--format` | `-f` | `zip` | Archive format (`zip`, `7z`, `zstd`, `brotli`, `lz4`, `tar`, `tar.gz`, `tar.bz2`, `tar.xz`, `tar.zst`) |
-| `--level` | `-l` | `5` | Compression level (0=store, 1=fastest, 5=normal, 9=ultra) |
-| `--password` | `-p` | | Encryption password |
-| `--encryption` | `-e` | `aes-256-gcm` | Cipher algorithm (`aes-256-gcm`, `chacha20-poly1305`) |
-| `--parallel` | | `true` | Enable parallel compression |
-| `--threads` | `-t` | *CPU count* | Number of worker threads |
-| `--solid` | | `false` | Enable solid archive (7z only) |
-| `--solid-block` | | `64` | Solid block size in MB (7z only) |
-| `--volume-size` | | | Split archive into volumes (e.g., `100M`, `1G`) |
-| `--include-hidden` | | `true` | Include hidden files |
-| `--exclude` | | | Glob pattern to exclude |
-| `--store-json` | | | Store JSON metadata in archive |
-
-**Examples:**
+| `-o, --output` | | (required) | Output path |
+| `-f, --format` | | `zip` | ⚠️ Accepted but **ignored** — output is always ZIP |
+| `-l, --level` | | `5` | Clamped 0–9 |
+| `-p, --password` | | | Encryption password |
 
 ```shell
-arcana compress *.txt -o backup.zip
-arcana compress ./docs -o docs.7z -f 7z -l 9 --password s3cret
-arcana compress . -o archive.tar.zst -f tar.zst -l 3 --parallel
-arcana compress ./photos -o photos.7z --volume-size 100M
-arcana compress ./src -o src.zip --exclude "**/bin/**" --exclude "**/obj/**"
+arcana compress release/ -o release.zip -l 9
 ```
 
 ### `arcana extract`
 
-Extract files from an archive.
+Extract any supported archive.
 
 ```shell
 arcana extract <archive> [output-directory] [options]
@@ -65,54 +55,69 @@ arcana extract <archive> [output-directory] [options]
 
 | Argument | Description |
 |---|---|
-| `archive` | Path to archive |
-| `output-directory` | Extraction target (default: current directory) |
+| `archive` | Path to archive (any supported format) |
+| `output-directory` | Extraction target (default `.`) |
 
-| Option | Short | Default | Description |
+| Option | Alias | Default | Notes |
 |---|---|---|---|
-| `--password` | `-p` | | Decryption password |
-| `--password-file` | | | Path to password file |
-| `--overwrite` | `-o` | `prompt` | Overwrite mode (`yes`, `no`, `prompt`, `rename`) |
-| `--filter` | `-f` | | Extract only matching files (glob) |
-| `--flat` | | `false` | Extract without directory structure |
-| `--strip-components` | | `0` | Remove leading path components |
-| `--test` | | `false` | Test integrity without extracting |
-| `--list` | | `false` | List contents and exit |
-
-**Examples:**
+| `-p, --password` | | | ⚠️ Accepted but **not wired** to `OpenAsync` yet |
+| `--overwrite` | | `false` | ⚠️ Accepted but **not used** |
 
 ```shell
-arcana extract backup.zip
-arcana extract archive.7z ./output -p s3cret
-arcana extract archive.zip -f "**/*.txt" --flat
-arcana extract archive.7z --test
-arcana extract archive.zip --list
+arcana extract backup.7z
+arcana extract archive.zip ./out
 ```
 
 ### `arcana list`
 
-List archive contents.
+List archive contents as a table.
 
 ```shell
 arcana list <archive> [options]
 ```
 
-| Option | Short | Default | Description |
-|---|---|---|---|
-| `--detailed` | `-l` | `false` | Detailed listing (size, ratio, date, method) |
-| `--sort` | `-s` | `name` | Sort field (`name`, `size`, `date`, `ratio`) |
-| `--reverse` | `-r` | `false` | Reverse sort order |
-| `--filter` | `-f` | | Filter entries (glob) |
-| `--json` | `-j` | `false` | JSON output |
-| `--tree` | `-t` | `false` | Tree view output |
-
-**Examples:**
+| Option | Alias | Description |
+|---|---|---|
+| `-l, --detailed` | | Detailed listing (size, ratio, date, method) |
 
 ```shell
-arcana list archive.zip
-arcana list archive.7z -l -s size --reverse
-arcana list archive.zip -f "**/docs/**" --tree
-arcana list archive.zip --json
+arcana list archive.zip -l
+```
+
+### `arcana convert`
+
+Convert between archive formats (ZIP / 7z / Zstandard).
+
+```shell
+arcana convert <source> -o <output> [options]
+```
+
+| Option | Alias | Default | Description |
+|---|---|---|---|
+| `-o, --output` | | (required) | Output path |
+| `-f, --format` | | auto | Output format (zip / 7z / zstd) |
+| `-l, --level` | | `5` | Clamped 0–10 |
+
+```shell
+arcana convert backup.7z -f zip -o backup.zip
+```
+
+### `arcana hash`
+
+Compute file checksums.
+
+```shell
+arcana hash <file>... [options]
+```
+
+| Option | Alias | Default | Description |
+|---|---|---|---|
+| `-a, --algorithm` | | `SHA256` | MD5, SHA1, SHA256, SHA512 (case-insensitive) |
+| `--verify <file>` | | | File containing expected checksums to verify against |
+
+```shell
+arcana hash setup.exe -a sha256
+arcana hash setup.exe -a sha256 --verify setup.exe.sha256
 ```
 
 ### `arcana split`
@@ -123,82 +128,58 @@ Split a file into parts.
 arcana split <file> [options]
 ```
 
-| Option | Short | Default | Description |
+| Option | Alias | Default | Description |
 |---|---|---|---|
-| `--part-size` | `-s` | `100M` | Part size (`10M`, `100M`, `1G`, `650M` for CD, `4480M` for DVD) |
-| `--output` | `-o` | *same dir as file* | Output directory |
-| `--delete-after` | | `false` | Delete original after split |
+| `-s, --part-size` | | `100M` | Size with `K`/`M`/`G` suffix (e.g. `10M`, `100M`, `1G`) |
+| `-o, --output` | | `.` | Output directory |
+| `--hjsplit` | | `false` | HJSplit-compatible naming (`.001`, `.002`, …) |
+
+```shell
+arcana split movie.iso -s 100M --hjsplit -o parts/
+```
 
 ### `arcana join`
 
-Join split file parts.
+Join split parts back.
 
 ```shell
 arcana join <parts>... [options]
 ```
 
-| Option | Short | Default | Description |
+| Option | Alias | Default | Description |
 |---|---|---|---|
-| `--output` | `-o` | *current directory* | Output file path |
-| `--delete-after` | | `false` | Delete parts after join |
+| `-o, --output` | | `output` | Output file path |
 
-### `arcana hash`
-
-Compute file checksums.
+Parts are auto-discovered when one part is given (`AutoDiscoverParts`).
 
 ```shell
-arcana hash <file>... [options]
+arcana join "parts/movie.iso.001" -o movie.iso
 ```
-
-| Option | Short | Default | Description |
-|---|---|---|---|
-| `--algorithm` | `-a` | `sha256` | Hash algorithm (`md5`, `sha1`, `sha256`, `sha512`, `blake2b`, `blake2s`) |
-| `--output` | `-o` | | Write checksums to file |
-| `--verify` | | | Verify checksums from file |
-| `--format` | `-f` | `text` | Output format (`text`, `json`, `bsd`, `sun`) |
-
-### `arcana convert`
-
-Convert between archive formats.
-
-```shell
-arcana convert <source> -o <output> [options]
-```
-
-| Option | Short | Default | Description |
-|---|---|---|---|
-| `--output` | `-o` | (required) | Output archive path |
-| `--format` | `-f` | *auto (from extension)* | Output format |
-| `--level` | `-l` | `5` | Compression level |
-| `--password` | `-p` | | Encryption password (output) |
-| `--source-password` | | | Decryption password (source) |
-| `--delete-source` | | `false` | Delete source after conversion |
 
 ### `arcana benchmark`
 
-Run compression benchmarks.
+Run compression benchmarks (ZIP, 7z, Zstd).
 
 ```shell
 arcana benchmark [options]
 ```
 
-| Option | Short | Default | Description |
+| Option | Alias | Default | Description |
 |---|---|---|---|
-| `--data` | `-d` | `silesia` | Test data set (`silesia`, `enwik8`, `random`) |
-| `--formats` | `-f` | `all` | Formats to benchmark |
-| `--threads` | `-t` | *all* | Thread count(s) to test |
-| `--output` | `-o` | | Save results to JSON |
+| `-d, --data` | | `tiny` | Payload size: `tiny`, `1k`, `small`, `1m`, `medium`, `10m` |
 
-## Exit Codes
+Data is generated with a fixed random seed (`Random(42)`), so runs are reproducible.
 
-| Code | Meaning |
-|---|---|
-| 0 | Success |
-| 1 | General error |
-| 2 | Invalid arguments |
-| 3 | File not found |
-| 4 | Access denied |
-| 5 | Wrong password |
-| 6 | Corrupted archive |
-| 7 | Unsupported format |
-| 8 | Cancelled by user |
+```shell
+arcana benchmark -d 10m
+```
+
+## Unimplemented Options (roadmap)
+
+Options listed in earlier documentation that do **not** exist in the current CLI: `--verbose`, `--quiet`, `--solid`, `--solid-block`, `--volume-size`, `--exclude`, `--store-json`, `--password-file`, `--filter`, `--flat`, `--strip-components`, `--test`, `--list`, `--json`, `--tree`, `--delete-after`, `--source-password`, `--delete-source`, `--format bsd/sun`, stdin/stdout piping.
+
+## Notes
+
+- **`--format` on `compress`** is accepted but ignored (always ZIP). Use `convert` for other output formats.
+- **`extract --password` / `--overwrite`** are accepted but not wired; use the GUI for password-protected extraction today.
+- **Logging** level is fixed at `Warning` in the CLI regardless of `--log-level` (see `LogConfig`).

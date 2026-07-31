@@ -2,7 +2,7 @@
 
 ## Language
 
-C# 12 (.NET 8). All projects use the latest language features.
+C# 12/13, .NET 10. All projects use modern language features (records, pattern matching, primary constructors where idiomatic).
 
 ## Naming Conventions
 
@@ -10,22 +10,20 @@ C# 12 (.NET 8). All projects use the latest language features.
 |---|---|---|
 | Namespaces | PascalCase, file-scoped | `Arcana.Core.Compression` |
 | Classes/Structs | PascalCase, noun | `ArchiveEntry`, `CompressionOptions` |
-| Interfaces | PascalCase, `I` prefix | `IArchiveFormat`, `ICompressionEngine` |
-| Methods | PascalCase, verb | `OpenAsync()`, `GetDirtyNodes()` |
+| Interfaces | PascalCase, `I` prefix | `IArchiveFormat`, `IIconProvider` |
+| Methods | PascalCase, verb | `OpenAsync()`, `SyncNodeMetadata()` |
 | Properties | PascalCase, noun | `IsEncrypted`, `CompressedSize` |
-| Public fields | PascalCase | `MaxRetries` |
 | Private fields | `_camelCase` | `_disposed`, `_currentFile` |
 | Parameters | camelCase | `sourcePath`, `outputStream` |
 | Local variables | camelCase | `archive`, `entry` |
 | Constants | PascalCase | `DefaultBufferSize` |
 | Enums | PascalCase (singular) | `CompressionFormat`, `NodeType` |
-| Boolean properties | Affirmative | `IsDirty`, `HasChildren`, `CanRead` |
+| Boolean properties | Affirmative | `IsDirty`, `CanRead`, `HasDirtyNodes` |
 
 ## File Organization
 
 ```csharp
-// Copyright header (if any)
-// License header (GPLv3 preamble)
+// License header: GPL-3.0-or-later preamble
 
 namespace Arcana.Core.Compression;
 
@@ -67,104 +65,33 @@ public class ZipEngine : IArchiveFormat
 - Maximum line length: 120 characters (soft limit)
 - One blank line between members, two between types
 
-Example:
-
-```csharp
-public async Task<Archive> OpenAsync(
-    string path,
-    Stream stream,
-    AccessMode mode,
-    CancellationToken ct = default)
-{
-    if (string.IsNullOrEmpty(path))
-    {
-        throw new ArgumentException("Path cannot be empty", nameof(path));
-    }
-
-    ct.ThrowIfCancellationRequested();
-
-    var entries = await Task.Run(
-        () => SharpCompressReader.ReadEntries(stream),
-        ct);
-
-    return new Archive
-    {
-        Format = CompressionFormat.Zip,
-        FormatEngine = this,
-        Entries = entries.ToList()
-    };
-}
-```
-
 ## Async Patterns
 
-- All I/O-bound methods return `Task`/`Task<T>`
-- All CPU-bound parallel work uses `Parallel.ForEach` or `Task.Run`
+- I/O-bound methods return `Task`/`Task<T>`
 - `CancellationToken` as last parameter with default `default`
 - `IProgress<T>` for progress reporting
 - `ConfigureAwait(false)` in library code (not in UI code)
 
-```csharp
-public async Task CompressAsync(
-    Stream source,
-    Stream destination,
-    CompressionLevel level,
-    IProgress<ProgressReport>? progress = null,
-    CancellationToken ct = default)
-{
-    await Task.Run(() =>
-    {
-        ct.ThrowIfCancellationRequested();
-        // Synchronous compression work
-        InternalCompress(source, destination, level, progress);
-    }, ct).ConfigureAwait(false);
-}
-```
-
 ## Error Handling
 
-- Use exceptions for exceptional cases only
-- Use `Result<T>` pattern for expected failures (future)
+- Exceptions for exceptional cases only
+- Wrap external library exceptions in Arcana-specific exceptions where a caller needs a stable contract (`NotSupportedException` for write-unsupported formats)
 - Always provide meaningful error messages
-- Wrap external library exceptions in Arcana-specific exceptions
-
-```csharp
-public class ArchiveException : Exception
-{
-    public ArchiveException(string message) : base(message) { }
-    public ArchiveException(string message, Exception inner) : base(message, inner) { }
-}
-
-public class CorruptArchiveException : ArchiveException { }
-public class WrongPasswordException : ArchiveException { }
-public class UnsupportedFormatException : ArchiveException { }
-```
 
 ## XML Documentation
 
-All public API members must have XML doc comments:
+All public API members in `Arcana.Core` should have XML doc comments.
 
-```csharp
-/// <summary>
-/// Opens an archive from the specified stream.
-/// </summary>
-/// <param name="path">Path to the archive file (for reference only).</param>
-/// <param name="stream">Stream containing the archive data.</param>
-/// <param name="mode">Access mode (Read, Write, or ReadWrite).</param>
-/// <param name="ct">Cancellation token.</param>
-/// <returns>An <see cref="Archive"/> instance representing the opened archive.</returns>
-/// <exception cref="CorruptArchiveException">Thrown when the archive data is invalid.</exception>
-/// <exception cref="UnsupportedFormatException">Thrown when the format is not recognized.</exception>
-public Task<Archive> OpenAsync(
-    string path,
-    Stream stream,
-    AccessMode mode,
-    CancellationToken ct = default);
-```
+## MVVM (Arcana.App)
+
+- ViewModels use CommunityToolkit.Mvvm source generators: `[ObservableProperty]`, `[RelayCommand]`
+- Bindings use compiled bindings (`x:DataType`) — enabled project-wide
+- No business logic in code-behind; code-behind only wires view concerns
+- UI work on `Dispatcher.UIThread`; background work via `Task.Run` + `IProgress<T>`
 
 ## Commit Messages
 
-Follow the [Conventional Commits](https://www.conventionalcommits.org/) specification:
+Follow [Conventional Commits](https://www.conventionalcommits.org/):
 
 ```
 <type>(<scope>): <short description>
@@ -174,19 +101,29 @@ Follow the [Conventional Commits](https://www.conventionalcommits.org/) specific
 [optional footer]
 ```
 
-See [BRANCH_STRATEGY.md](../BRANCH_STRATEGY.md) for commit type reference.
+| Type | Usage |
+|---|---|
+| `feat` | New feature |
+| `fix` | Bug fix |
+| `docs` | Documentation |
+| `style` | Formatting only |
+| `refactor` | Code change without feature/fix |
+| `perf` | Performance improvement |
+| `test` | Adding/fixing tests |
+| `chore` | Build, CI, deps |
+| `release` | Release commit |
+
+See [BRANCH_STRATEGY.md](../BRANCH_STRATEGY.md) for the workflow.
 
 ## Code Analyzers
 
-The project uses:
-
-- `.editorconfig` — formatting rules (enforced in CI)
+- `.editorconfig` — formatting rules
 - Roslyn analyzers (implicit via .NET SDK)
-- No StyleCop — prefer `.editorconfig` built-in rules
+- No StyleCop
 
 Run before committing:
 
 ```shell
-dotnet build src/Arcana.sln
-dotnet test src/Arcana.sln
+dotnet build src/Arcana.slnx
+dotnet test  src/Arcana.slnx
 ```

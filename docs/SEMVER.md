@@ -1,36 +1,60 @@
 # Versioning Policy
 
-Arcana follows [Semantic Versioning 2.0.0](https://semver.org/).
+Arcana uses a semantic-prefix build scheme derived from `src/Directory.Build.props`.
 
 ## Format
 
 ```
-v<MAJOR>.<MINOR>.<PATCH>[-<PRE-RELEASE>[.<BUILD>]]
+{MAJOR}.{MINOR}.{PATCH}-build.{N}+{githash}
 ```
 
-## Rules
+Example: `0.1.0-build.2+5d272a8bf6…`
 
-| Increment | When | Example |
-|---|---|---|
-| **MAJOR** | Breaking change to public API, archive format incompatibility, UI paradigm shift | `v1.0.0` → `v2.0.0` |
-| **MINOR** | New feature backward-compatible, new format support, new tool | `v0.1.0` → `v0.2.0` |
-| **PATCH** | Bug fix, performance improvement, documentation | `v0.1.0` → `v0.1.1` |
+| Component | Source |
+|---|---|
+| `MAJOR.MINOR.PATCH` | `Directory.Build.props` (`VersionMajor/Minor/Patch`) |
+| `build.{N}` | `build/build-counter.txt` (`prefix\|counter`) |
+| `+{githash}` | Auto-appended by the SDK (`SourceRevisionId`) |
 
-## Pre-release Labels
+## Build Counter
 
-| Label | Meaning | Example |
-|---|---|---|
-| `alpha` | Work in progress, unstable API, may break | `v0.1.0-alpha.1` |
-| `beta` | Feature complete, testing phase, API stable | `v0.1.0-beta.1` |
-| `rc` | Release candidate, final testing | `v0.1.0-rc.1` |
+`build/build-counter.txt` stores `{prefix}|{counter}` (currently `0.1.0|2`).
+
+- Increment: `powershell -File build/increment-version.ps1`
+- Counter resets to 1 when the version prefix changes
+- The prefix and counter are validated at build time against `Directory.Build.props`
+
+## Assembly Versioning
+
+| Attribute | Value |
+|---|---|
+| `AssemblyVersion` | `{prefix}.{N}` |
+| `FileVersion` | `{prefix}.{N}` |
+| `InformationalVersion` | `{prefix}-build.{N}` (+ git hash) |
+| `Version` | `{prefix}-build.{N}` |
+
+`arcana --version` is emitted automatically by System.CommandLine v2 from the assembly's informational version. The GUI About dialog reads the runtime assembly version (not hardcoded).
+
+## When to Bump
+
+| Change | Action |
+|---|---|
+| Breaking change to public API / format | Bump MAJOR (and increment counter) |
+| New backward-compatible feature | Bump MINOR (and increment counter) |
+| Bug fix / docs / perf | Bump PATCH (and increment counter) |
+| Any release | Run `increment-version.ps1` + tag `v{prefix}-build.{N}` |
 
 ## v0.x Exceptions
 
-While in initial development (major version 0), the following applies:
+While MAJOR = 0, the public API is not considered stable; minor bumps may include breaking changes.
 
-- **MINOR** increments can include breaking changes
-- Public API is not considered stable until v1.0.0
-- Pre-release labels strongly recommended for all v0.x releases
+## Tagging
+
+Releases on `main` are tagged, e.g.:
+
+```shell
+git tag v0.1.0-build.2 -m "v0.1.0-build.2"
+```
 
 ## Compatibility Policy
 
@@ -40,32 +64,3 @@ While in initial development (major version 0), the following applies:
 | Binary compatibility | Same assembly works without recompilation |
 | Archive format backward compatibility | New version reads files created by any older version |
 | Archive format forward compatibility | Old versions may NOT read files created by newer version |
-
-## Version Lifecycle
-
-```
-develop ──→ release/v0.1.0 ──→ main (v0.1.0-alpha.1)
-                                        ↓
-                              fix bugs, stabilize
-                                        ↓
-                              main (v0.1.0-rc.1)
-                                        ↓
-                              final testing
-                                        ↓
-                              main (v0.1.0) 🎉
-                                        ↓
-                              bug fixes → v0.1.1, v0.1.2, ...
-                                        ↓
-                              develop (v0.2.0-dev)
-```
-
-## Tagging
-
-All releases on `main` branch are tagged:
-
-```shell
-git tag -s v0.1.0 -m "v0.1.0: MVP release"
-git tag -s v0.1.1 -m "v0.1.1: Fix ZIP UTF-8 encoding"
-```
-
-Tags are signed with the developer's GPG key.

@@ -1,134 +1,147 @@
 # Specifications
 
+Functional and non-functional requirements, aligned with the current implementation.
+
 ## Functional Requirements
 
 ### FR-COMPRESS: Compression Operations
 
-| ID | Requirement | Priority |
+| ID | Requirement | Status |
 |---|---|---|
-| FR-CMP-01 | User can compress files and directories into ZIP format | P0 |
-| FR-CMP-02 | User can compress into 7z format | P0 |
-| FR-CMP-03 | User can compress into Zstandard format | P0 |
-| FR-CMP-04 | User can compress into Brotli, LZ4, LZMA, XZ, BZip2, GZip formats | P1 |
-| FR-CMP-05 | User can create TAR archives (with or without compression) | P1 |
-| FR-CMP-06 | User can set compression level (store/fast/normal/maximum/ultra) | P0 |
-| FR-CMP-07 | User can enable parallel compression (multi-threaded) | P0 |
-| FR-CMP-08 | User can set thread count for parallel operations | P1 |
-| FR-CMP-09 | User can add password-based encryption during compression | P0 |
-| FR-CMP-10 | User can add key-file-based encryption | P2 |
-| FR-CMP-11 | User can split archive into volumes (span) | P1 |
-| FR-CMP-12 | User can add file comments and archive comments | P2 |
+| FR-CMP-01 | Compress files and directories into ZIP | ✅ Implemented |
+| FR-CMP-02 | Compress into 7z | ✅ Implemented |
+| FR-CMP-03 | Compress into Zstandard (`.zst`) | ✅ Implemented |
+| FR-CMP-04 | Compress into Brotli, LZ4, LZMA, XZ, BZip2, GZip, Snappy (single-stream) | ✅ Implemented |
+| FR-CMP-05 | Create TAR archives, with optional GZip/BZip2/Zstd wrapping | ✅ Implemented (`.tar.xz` write not supported) |
+| FR-CMP-06 | Set compression level (0=store … 10=insane) | ✅ Implemented (CLI clamps 0–9/0–10, GUI preset list) |
+| FR-CMP-07 | Password encryption during compression | ⚠️ ZIP + 7z only (Arcana AES-256-GCM container) |
+| FR-CMP-08 | Split archive into volumes during compression | ❌ Not implemented — use `split` tool |
+| FR-CMP-09 | Key-file-based encryption | ❌ Future |
+| FR-CMP-10 | Archive/file comments | ❌ Future |
 
 ### FR-EXTRACT: Extraction Operations
 
-| ID | Requirement | Priority |
+| ID | Requirement | Status |
 |---|---|---|
-| FR-EXT-01 | User can extract archives in ZIP, 7z, Zstd, Tar, GZip, BZip2, XZ formats | P0 |
-| FR-EXT-02 | User can extract RAR archives (read-only) | P1 |
-| FR-EXT-03 | User can extract with password | P0 |
-| FR-EXT-04 | User can extract single files from archive | P0 |
-| FR-EXT-05 | User can extract to specific directory | P0 |
-| FR-EXT-06 | User can test archive integrity | P1 |
-| FR-EXT-07 | User can extract encrypted archives with key file | P2 |
+| FR-EXT-01 | Extract ZIP, 7z, Zstd, Tar(+gz/bz2/xz/zst), GZip, BZip2, XZ, LZMA, LZ4, Snappy, Brotli | ✅ Implemented |
+| FR-EXT-02 | Extract RAR (read-only) | ✅ Implemented (RAR4 + RAR5) |
+| FR-EXT-03 | Extract ACE, ARJ, CAB, LZH/LHA (read-only) | ✅ Implemented |
+| FR-EXT-04 | Extract 240+ formats via Hawkynt fallback — including MSIX, MSI, APPX, EXE/SFX/installers, CHM, WIM, DOCX/XLSX/PPTX, EPUB, APK, IPA, DEB, RPM, game packs | ✅ Best-effort, read-only |
+| FR-EXT-05 | Extract with password | ✅ Implemented (Zip, 7z, Zstd, Rar, Ace, Arj, Cab, Lzh, Hawkynt via `SetPassword`) |
+| FR-EXT-06 | Extract single files / specific directory | ✅ Implemented |
+| FR-EXT-07 | Test archive integrity | ✅ Implemented in GUI (CRC32 check) |
+| FR-EXT-08 | Key-file-based decryption | ❌ Future |
 
 ### FR-BROWSE: Archive Browsing
 
-| ID | Requirement | Priority |
+| ID | Requirement | Status |
 |---|---|---|
-| FR-BRW-01 | User can open archive and view its contents as a file tree | P0 |
-| FR-BRW-02 | User can sort entries by name, size, date, ratio | P0 |
-| FR-BRW-03 | User can search/filter entries by name | P1 |
-| FR-BRW-04 | User can view detailed properties of each entry | P0 |
-| FR-BRW-05 | User can preview file contents internally | P0 |
+| FR-BRW-01 | Open archive and view contents as folder tree + file list | ✅ Implemented |
+| FR-BRW-02 | Sort entries by name, size, packed, ratio, type, modified | ✅ Implemented (DataGrid sorting) |
+| FR-BRW-03 | Search/filter entries by name | ✅ Implemented (filter box) |
+| FR-BRW-04 | View entry properties (size, packed, ratio, type, modified, CRC) | ✅ Implemented (columns + Info dialog) |
+| FR-BRW-05 | Navigate with breadcrumb, back history, folder tree sync | ✅ Implemented |
+| FR-BRW-06 | Favorites (pinned archives) | ✅ Implemented |
 
 ### FR-PREVIEW: Internal Preview
 
-| ID | Requirement | Priority |
+| ID | Requirement | Status |
 |---|---|---|
-| FR-PRV-01 | User can preview text files with syntax highlighting | P0 |
-| FR-PRV-02 | User can preview images (PNG, JPEG, WebP, BMP, GIF) | P0 |
-| FR-PRV-03 | User can preview files as hexadecimal dump | P1 |
-| FR-PRV-04 | User can preview Markdown files rendered | P1 |
-| FR-PRV-05 | User can preview text files and edit them inline | P1 |
-| FR-PRV-06 | User can preview file metadata (EXIF, format info) | P2 |
+| FR-PRV-01 | Preview text files (BOM/UTF-8/Latin-1 detection) | ✅ Implemented |
+| FR-PRV-02 | Preview images (PNG, JPEG, BMP, GIF, etc. via Avalonia codecs) | ✅ Implemented |
+| FR-PRV-03 | Preview files as hexadecimal dump (on demand) | ✅ Implemented |
+| FR-PRV-04 | Syntax highlighting | ❌ Future |
+| FR-PRV-05 | Inline text editing | ❌ Future |
+| FR-PRV-06 | File metadata (EXIF, format info) | ❌ Future |
 
 ### FR-EDIT: Archive Editing
 
-| ID | Requirement | Priority |
+| ID | Requirement | Status |
 |---|---|---|
-| FR-EDT-01 | User can rename files inside archive | P0 |
-| FR-EDT-02 | User can delete files from archive | P0 |
-| FR-EDT-03 | User can add new files to existing archive | P0 |
-| FR-EDT-04 | User can edit text files inside archive and save changes | P1 |
-| FR-EDT-05 | User can drag & drop files into archive | P1 |
-| FR-EDT-06 | User can reorder files within archive | P2 |
+| FR-EDT-01 | Rename files inside archive | ⚠️ VFS API exists; GUI wiring pending |
+| FR-EDT-02 | Delete files from archive | ⚠️ VFS API exists; GUI wiring pending |
+| FR-EDT-03 | Add new files to existing archive | ⚠️ VFS API exists; GUI wiring pending |
+| FR-EDT-04 | Drag & drop files into archive | ❌ Future |
+| FR-EDT-05 | Save modified archive in place / save copy as | ⚠️ `SaveCopyAsCommand` present |
 
 ### FR-TOOLS: Utility Tools
 
-| ID | Requirement | Priority |
+| ID | Requirement | Status |
 |---|---|---|
-| FR-TLS-01 | User can split files into parts | P0 |
-| FR-TLS-02 | User can join split files back | P0 |
-| FR-TLS-03 | User can compute file hashes (SHA256, SHA512, BLAKE2, MD5) | P0 |
-| FR-TLS-04 | User can verify file integrity via hash file | P1 |
-| FR-TLS-05 | User can convert images between formats | P1 |
-| FR-TLS-06 | User can batch compress multiple archives | P1 |
-| FR-TLS-07 | User can convert archive between formats | P1 |
-| FR-TLS-08 | User can benchmark compression performance | P2 |
+| FR-TLS-01 | Split files into parts | ✅ Implemented (GUI + CLI, custom size, presets 100 MB–4 GB) |
+| FR-TLS-02 | Join split files back | ✅ Implemented (auto part discovery) |
+| FR-TLS-03 | HJSplit-compatible split naming (`.001`, `.002`…) | ✅ Implemented |
+| FR-TLS-04 | Compute hashes MD5, SHA-1, SHA-256, SHA-512 | ✅ Implemented (GUI + CLI) |
+| FR-TLS-05 | Verify hashes | ✅ Implemented (CLI `--verify`) |
+| FR-TLS-06 | Convert archives between formats | ✅ Implemented (ZIP, 7z, Zstd in GUI; CLI `--format`) |
+| FR-TLS-07 | Benchmark compression engines | ✅ Implemented (CLI `benchmark`, data sizes tiny→10 MB, ZIP/7z/Zstd) |
+| FR-TLS-08 | Batch processing | ❌ Stub (`BatchProcessor` throws `NotImplementedException`) |
+| FR-TLS-09 | Image conversion | ❌ Stub (`ImageConverter` throws `NotImplementedException`) |
 
 ### FR-CLI: Command-Line Interface
 
-| ID | Requirement | Priority |
+| ID | Requirement | Status |
 |---|---|---|
-| FR-CLI-01 | User can run `arcana compress` with source, format, output args | P0 |
-| FR-CLI-02 | User can run `arcana extract` with input and output args | P0 |
-| FR-CLI-03 | User can run `arcana list` to view archive contents | P0 |
-| FR-CLI-04 | User can run `arcana split` and `arcana join` | P0 |
-| FR-CLI-05 | User can run `arcana hash` to compute checksums | P0 |
-| FR-CLI-06 | User can run `arcana convert` to convert archives | P1 |
-| FR-CLI-07 | User can pipe data via stdin/stdout | P2 |
+| FR-CLI-01 | `arcana compress <source>... -o <output>` | ✅ Implemented (writes ZIP) |
+| FR-CLI-02 | `arcana extract <archive> [dir]` | ✅ Implemented |
+| FR-CLI-03 | `arcana list <archive>` | ✅ Implemented (table output) |
+| FR-CLI-04 | `arcana split` / `arcana join` | ✅ Implemented |
+| FR-CLI-05 | `arcana hash` with `--verify` | ✅ Implemented |
+| FR-CLI-06 | `arcana convert` | ✅ Implemented |
+| FR-CLI-07 | `arcana benchmark` | ✅ Implemented |
+| FR-CLI-08 | Global `--no-color` | ✅ Implemented |
+| FR-CLI-09 | Global `--log-level` | ⚠️ Option exists; currently unused by CLI (level fixed at Warning) |
+| FR-CLI-10 | Pipe data via stdin/stdout | ❌ Future |
 
 ## Non-Functional Requirements
 
-| ID | Requirement | Target | Priority |
+| ID | Requirement | Target | Status |
 |---|---|---|---|
-| NFR-PRF-01 | Compression speed comparable to 7-Zip on same format | Within 20% | P1 |
-| NFR-PRF-02 | Decompression speed comparable to 7-Zip | Within 20% | P1 |
-| NFR-PRF-03 | UI startup time | < 2 seconds | P0 |
-| NFR-PRF-04 | Memory usage for 4GB archive | < 1GB | P1 |
-| NFR-PRF-05 | UI responsiveness during background ops | < 100ms frame time | P0 |
-| NFR-SEC-01 | Encryption uses authenticated encryption (AEAD) | AES-256-GCM or ChaCha20-Poly1305 | P0 |
-| NFR-SEC-02 | Key derivation uses memory-hard function | Argon2id | P0 |
-| NFR-SEC-03 | Sensitive data zeroed in memory after use | SecureClear | P1 |
-| NFR-CPT-01 | Cross-platform on Windows, macOS, Linux | Same feature set | P0 |
-| NFR-CPT-02 | Unicode filename support | Full | P0 |
-| NFR-CPT-03 | Handle files > 4GB | Supported | P0 |
-| NFR-CPT-04 | Handle archives with 10k+ entries | Usable UI | P1 |
-| NFR-CPT-05 | Graceful handling of corrupted archives | Error message, not crash | P0 |
+| NFR-PRF-01 | UI startup time | < 2 s | ✅ Achieved |
+| NFR-PRF-02 | UI responsiveness during background ops | No frame drops | ✅ Background via `Task.Run` |
+| NFR-PRF-03 | Memory guard for large archives | Lazy content loading | ✅ `ContentFactory` loads on demand |
+| NFR-SEC-01 | Authenticated encryption (AEAD) | AES-256-GCM | ✅ Implemented |
+| NFR-SEC-02 | Memory-hard key derivation | Argon2id | ✅ Implemented |
+| NFR-SEC-03 | ChaCha20-Poly1305 alternative | AEAD, software-friendly | ❌ Future |
+| NFR-CPT-01 | Cross-platform Windows, macOS, Linux | Same feature set | ✅ Avalonia |
+| NFR-CPT-02 | Unicode filenames | Full | ✅ |
+| NFR-CPT-03 | Files > 4 GB | Supported (ZIP64 etc.) | ✅ |
+| NFR-CPT-04 | Graceful handling of corrupted archives | Error message, not crash | ✅ Best-effort |
+| NFR-LOG-01 | Structured logging across engines/commands/tools | Serilog | ✅ |
 
 ## Format Support Matrix
 
-| Format | Read | Write | Encrypt | Solid | Volumes | Unicode | Max Size |
-|---|---|---|---|---|---|---|---|
-| ZIP | ✅ | ✅ | ✅ | ❌ | ❌ | ⚠️ (UTF-8) | 16EB (ZIP64) |
-| 7z | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 16EB |
-| Zstandard | ✅ | ✅ | ✅ | ✅ | ✅ | N/A | Unlimited |
-| Brotli | ✅ | ✅ | ❌ | ❌ | ❌ | N/A | Unlimited |
-| LZ4 | ✅ | ✅ | ❌ | ❌ | ❌ | N/A | Unlimited |
-| TAR | ✅ | ✅ | N/A | ❌ | ❌ | ✅ | 8GB (POSIX) / 8EB (GNU) |
-| GZip | ✅ | ✅ | ❌ | ❌ | ❌ | N/A | Unlimited |
-| BZip2 | ✅ | ✅ | ❌ | ❌ | ❌ | N/A | Unlimited |
-| XZ | ✅ | ✅ | ❌ | ✅ | ❌ | N/A | Unlimited |
-| RAR | ✅ (ro) | ❌ | N/A | ✅ | ✅ | ✅ | 16EB |
+See [compression/FORMATS.md](compression/FORMATS.md) for the full capability table.
+
+| Format | Read | Write | Encrypt | Backend |
+|---|---|---|---|---|
+| ZIP | ✅ | ✅ | ✅ | SharpCompress + Arcana AES-GCM |
+| 7z | ✅ | ✅ | ✅ | SharpCompress + Arcana AES-GCM |
+| Zstandard | ✅ | ✅ | ❌ | ZstdNet |
+| Brotli | ✅ | ✅ | ❌ | System.IO.Compression |
+| LZ4 | ✅ | ✅ | ❌ | K4os.Compression.LZ4 |
+| LZMA | ✅ | ✅ | ❌ | SharpCompress |
+| XZ | ✅ | ✅ | ❌ | SharpCompress |
+| BZip2 | ✅ | ✅ | ❌ | SharpCompress |
+| GZip | ✅ | ✅ | ❌ | SharpCompress |
+| Snappy | ✅ | ✅ | ❌ | Snappy.Sharp |
+| TAR | ✅ | ✅ | ❌ | SharpCompress |
+| TAR+GZ/BZ2/ZST | ✅ | ✅ | ❌ | TarEngine routing |
+| TAR+XZ | ✅ | ⚠️ no write | ❌ | TarEngine |
+| RAR | ✅ | ❌ | ❌ | SharpCompress (RAR4/RAR5) |
+| ACE | ✅ | ❌ | ⚠️ password | Hawkynt |
+| ARJ | ✅ | ❌ | ⚠️ password | SharpCompress |
+| CAB | ✅ | ❌ | ❌ | Hawkynt |
+| LZH/LHA | ✅ | ❌ | ❌ | Hawkynt |
+| 240+ formats | ✅ best-effort | ❌ | ⚠️ password | Hawkynt FormatRegistry |
 
 ## Limits
 
 | Parameter | Limit |
 |---|---|
-| Maximum individual file size | 16 EB (limited by filesystem) |
-| Maximum archive entries | 2^31 - 1 (practical: 100k for UI) |
-| Maximum path length | 32,767 characters |
-| Maximum password length | 512 bytes (UTF-8) |
-| Maximum thread count | Number of logical processors |
-| Minimum supported file size | 1 byte |
-| Supported filename encoding | UTF-8, ASCII, OEM (CP850) |
+| Text preview size | 256 KiB (`PreviewService.MaxTextBytes`) |
+| Hex preview size | 64 KiB (`PreviewService.MaxHexBytes`) |
+| Compression level | 0 (store) … 10 (insane) |
+| Split part sizes | CLI parses `K`/`M`/`G` suffixes; GUI presets 100 MB–4 GB |
+| Password length | No explicit cap (UTF-8) |
+| Hash algorithms | MD5, SHA-1, SHA-256, SHA-512 |

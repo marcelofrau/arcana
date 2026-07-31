@@ -2,140 +2,48 @@
 
 ## Test Levels
 
-| Level | Framework | Location | CI |
+| Level | Framework | Location | Count |
 |---|---|---|---|
-| Unit | xUnit + FluentAssertions | `tests/Arcana.Core.Tests` | ✅ Always |
-| Integration | xUnit | `tests/Arcana.Core.Tests` (Integration) | ✅ Always |
-| UI | xUnit + Avalonia.Headless | `tests/Arcana.App.Tests` | ✅ Always |
-| CLI | xUnit + System.CommandLine | `tests/Arcana.Core.Tests` (Cli) | ✅ Always |
-| Compression | xUnit + Golden files | `tests/Arcana.Core.Tests` (Compression) | ✅ Always |
+| Unit / integration (Core) | xUnit + FluentAssertions | `tests/Arcana.Core.Tests` | 134 |
+| UI (headless Avalonia) | xUnit + FluentAssertions | `tests/Arcana.App.Tests` | 11 |
+| **Total** | | | **145** |
 
-## Unit Tests
+`tests/Arcana.App.Tests/AssemblyInfo.cs` disables parallelization (Avalonia headless must run sequentially).
 
-Test public API of each class in isolation. Mock external dependencies.
+## Core Tests (134)
 
-```csharp
-public class ZipEngineTests
-{
-    [Fact]
-    public void Name_ShouldReturnZip()
-    {
-        var engine = new ZipEngine();
-        engine.Name.Should().Be("ZIP");
-    }
+Cover:
 
-    [Fact]
-    public async Task OpenAsync_WithValidStream_ShouldReturnArchive()
-    {
-        // Arrange
-        using var stream = TestData.CreateValidZipStream();
-        var engine = new ZipEngine();
+- All 17 engines: round-trip compression/extraction, entry metadata, password handling, write-unsupported formats throwing `NotSupportedException`
+- `ArchiveFactory`: magic-byte detection, extension detection, tar routing, Hawkynt fallback, `SetPassword`
+- `VirtualFileSystem`: tree building, `ChildFolders`, dirty tracking, `FindNode`, `SyncNodeMetadata`
+- Cryptography: `EncryptionProvider` encrypt/decrypt round-trip, tamper detection, salt handling, `Argon2KeyDerivation`
+- Tools: `FileSplitter`/`FileJoiner` (HJSplit naming, auto-discovery), `HashCalculator` (all algorithms + verify)
 
-        // Act
-        var archive = await engine.OpenAsync("test.zip", stream, AccessMode.Read);
+Tests generate archives in-memory and compare against fixtures; no external tools required.
 
-        // Assert
-        archive.Should().NotBeNull();
-        archive.Entries.Should().NotBeEmpty();
-        archive.Format.Should().Be(CompressionFormat.Zip);
-    }
-}
-```
+## App Tests (11)
 
-## Golden File Tests (Compression Roundtrip)
+- `TestApp.cs` — headless bootstrap: `TestAppBuilder` with FluentTheme, the DataGrid Fluent theme `StyleInclude`, and converter resources (`IconToImage`, `NodeIcon`, `Equals`, `Invert`)
+- `PaneBindingTests.cs` (8) — `LoadArchive` populates the tree/table, `FolderTree` shows folders only (`ChildFolders`), `FileTable` rows realize, text preview loads, hex placeholder + `LoadBinaryCommand`, selection → preview end-to-end
+- `MainViewModelTests.cs` (3) — status text, empty tree, open-archive command smoke
 
-Create archive → extract → compare with original. This is the most important test.
+> The DataGrid Fluent theme must be registered in **both** the production app and the test app — Avalonia 12 removed the DataGrid theme from the default FluentTheme.
 
-```csharp
-[Theory]
-[InlineData(CompressionFormat.Zip, CompressionLevel.Normal)]
-[InlineData(CompressionFormat.Zip, CompressionLevel.Maximum)]
-[InlineData(CompressionFormat.SevenZip, CompressionLevel.Normal)]
-[InlineData(CompressionFormat.Zstandard, CompressionLevel.Fast)]
-public async Task CompressRoundtrip_PreservesData(CompressionFormat format, CompressionLevel level)
-{
-    // Arrange
-    var testDir = TestData.GetTestDirectory("mixed-files");
-    var outputPath = Path.GetTempFileName();
-    var extractDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
-
-    try
-    {
-        // Act: Compress
-        var options = new CompressionOptions { Format = format, Level = level };
-        await ArchiveFactory.CompressDirectoryAsync(testDir, outputPath, options);
-
-        // Act: Extract
-        await ArchiveFactory.ExtractAsync(outputPath, extractDir);
-
-        // Assert: Files match originals
-        TestData.DirectoriesShouldMatch(testDir, extractDir);
-    }
-    finally
-    {
-        File.Delete(outputPath);
-        Directory.Delete(extractDir, true);
-    }
-}
-```
-
-## Integration Tests
-
-Test real compression with actual libraries (SharpCompress, ZstdNet).
-
-```csharp
-[Collection("CompressionIntegration")]
-public class SevenZipIntegrationTests
-{
-    [Fact]
-    public async Task OpenAsync_WithReal7zFile_ShouldReadEntriesCorrectly()
-    {
-        using var stream = File.OpenRead(TestData.GetFixturePath("sample.7z"));
-        var engine = new SevenZipEngine();
-
-        var archive = await engine.OpenAsync("sample.7z", stream, AccessMode.Read);
-
-        archive.Entries.Should().Contain(e => e.Name == "document.txt");
-        archive.Entries.Should().Contain(e => e.Name == "image.png");
-    }
-}
-```
-
-## Test Data
-
-Test fixtures stored in `tests/Arcana.Core.Tests/Fixtures/`:
-
-```
-Fixtures/
-├── archives/
-│   ├── sample.zip        # Simple ZIP with 3 files
-│   ├── sample.7z         # Simple 7z with 3 files
-│   ├── sample.zst        # Zstd compressed file
-│   ├── empty.zip         # Empty ZIP (0 entries)
-│   ├── nested.zip        # Nested directories
-│   ├── encrypted.zip     # AES-256 encrypted ZIP
-│   └── corrupted.zip     # Deliberately corrupted
-├── files/
-│   ├── lorem-ipsum.txt   # 1KB text
-│   ├── lorem-ipsum-large.txt  # 10MB text
-│   ├── test-image.png    # 512x512 test pattern
-│   └── random-1mb.bin    # Random binary
-└── TestData.cs           # Helper to access fixtures
-```
-
-## Golden File Generation
-
-Golden files (expected outputs for comparison) are generated using reference tools:
+## Running Tests
 
 ```shell
-# Generate golden ZIP with 7-Zip
-7z a tests/Fixtures/archives/reference.zip ./tests/Fixtures/files/
+# All tests
+dotnet test src/Arcana.slnx
 
-# Generate golden 7z with 7-Zip
-7z a tests/Fixtures/archives/reference.7z ./tests/Fixtures/files/
+# Core only
+dotnet test tests/Arcana.Core.Tests
 
-# Generate golden Zstd with zstd CLI
-zstd -o tests/Fixtures/archives/reference.zst ./tests/Fixtures/files/lorem-ipsum.txt
+# App only
+dotnet test tests/Arcana.App.Tests
+
+# With coverage
+dotnet test src/Arcana.slnx --collect:"XPlat Code Coverage"
 ```
 
 ## Coverage Targets
@@ -149,30 +57,16 @@ zstd -o tests/Fixtures/archives/reference.zst ./tests/Fixtures/files/lorem-ipsum
 | Arcana.Cli | 70% |
 | Arcana.App (ViewModels) | 75% |
 
-## Running Tests
-
-```shell
-# All tests
-dotnet test src/Arcana.sln
-
-# Core only
-dotnet test tests/Arcana.Core.Tests
-
-# With coverage
-dotnet test src/Arcana.sln --collect:"XPlat Code Coverage"
-```
-
-## CI Pipeline
-
-Tests run on every push and PR:
+## CI Pipeline (planned)
 
 ```mermaid
 flowchart LR
     A[Push/PR] --> B[Build]
-    B --> C[Unit Tests]
-    C --> D[Integration Tests]
-    D --> E[Coverage Check]
-    E --> F{Fail?}
-    F -->|Yes| G[Block merge]
-    F -->|No| H[Ready]
+    B --> C[Core tests]
+    C --> D[App tests]
+    D --> E{Coverage check}
+    E -->|Fail| G[Block merge]
+    E -->|Pass| H[Ready]
 ```
+
+CI workflow is not yet committed; see [ROADMAP.md](../ROADMAP.md) v0.4.0.

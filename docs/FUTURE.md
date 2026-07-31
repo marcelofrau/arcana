@@ -25,7 +25,9 @@ Long-term wishlist and research topics. Not committed — ideas for inspiration.
 
 ## Format Expansion
 
-- **WIM**: Windows Imaging Format
+> Some formats below are already readable best-effort via the [Hawkynt fallback engine](compression/FORMATS.md) (e.g. WIM, MSI, CHM, game packs). The entries here target first-party engines.
+
+- **WIM**: Windows Imaging Format (native read/write; fallback currently read-only)
 - **DMG**: macOS disk images
 - **ISO**: Optical disc images (read + create from directory)
 - **SquashFS**: Linux filesystem compression
@@ -43,7 +45,7 @@ Long-term wishlist and research topics. Not committed — ideas for inspiration.
 
 - **Deduplication**: Find and remove duplicate files across archives
 - **Archive repair**: Recover corrupted archives (RAR recovery record style)
-- **Benchmark suite**: Built-in speed/ratio benchmark across all formats
+- **Benchmark suite expansion**: more datasets + visual charts (the `benchmark` command exists today — see [BENCHMARKS](compression/BENCHMARKS.md))
 - **Compression comparison**: Side-by-side comparison of formats for same data
 - **Password recovery**: GPU-accelerated dictionary attack (ethical only, with consent)
 - **Secure shred**: Overwrite deleted files from archives before compaction
