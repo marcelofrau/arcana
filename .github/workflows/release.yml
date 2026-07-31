@@ -1,0 +1,156 @@
+name: Release
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build + Test (${{ matrix.os }})
+    if: startsWith(github.ref, 'refs/tags/v')
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-latest, windows-latest ]
+    runs-on: ${{ matrix.os }}
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '10.0.x'
+
+    - name: Restore
+      run: dotnet restore src/Arcana.slnx
+
+    - name: Build
+      run: dotnet build src/Arcana.slnx -c Release --no-restore
+
+    - name: Test
+      run: dotnet test src/Arcana.slnx -c Release --no-build
+
+  release:
+    name: Package (${{ matrix.rid }})
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            rid: win-x64
+            script: powershell -File build/build-release.ps1 -Version $VERSION -Arch x64
+          - os: windows-latest
+            rid: win-arm64
+            script: powershell -File build/build-release.ps1 -Version $VERSION -Arch arm64
+          - os: ubuntu-latest
+            rid: linux-x64
+            script: bash build/build-release.sh "$VERSION" x64
+          - os: ubuntu-latest
+            rid: linux-arm64
+            script: bash build/build-release.sh "$VERSION" arm64
+          - os: macos-latest
+            rid: osx-x64
+            script: bash build/build-release.sh "$VERSION" x64
+          - os: macos-latest
+            rid: osx-arm64
+            script: bash build/build-release.sh "$VERSION" arm64
+    runs-on: ${{ matrix.os }}
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '10.0.x'
+
+    - name: Build release
+      shell: bash
+      env:
+        VERSION: ${{ github.ref_name }}
+      run: ${{ matrix.script }}
+
+    - name: Verify native executable in package
+      shell: bash
+      run: |
+        set -euo pipefail
+        shopt -s nullglob
+        zips=(build/dist/Arcana-*.zip)
+        if [ ${#zips[@]} -eq 0 ]; then
+          echo "::error::No ZIP found in build/dist/"
+          exit 1
+        fi
+        zip="${zips[0]}"
+        echo "Verifying: $(basename "$zip")"
+        case "${{ matrix.rid }}" in
+          win-*) expected="Arcana.App.exe" ;;
+          *)     expected="Arcana.App" ;;
+        esac
+        if unzip -Z1 "$zip" 2>/dev/null | grep -qxF "$expected"; then
+          echo "✅ '$expected' present"
+        else
+          echo "::error::Missing '$expected' in $(basename "$zip")"
+          echo "ZIP contents:"
+          unzip -Z1 "$zip"
+          exit 1
+        fi
+
+    - uses: actions/upload-artifact@v4
+      with:
+        name: release-${{ matrix.rid }}
+        path: build/dist/Arcana-*
+
+  publish:
+    name: Publish GitHub Release + VirusTotal
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: release
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/download-artifact@v4
+      with:
+        pattern: release-*
+        merge-multiple: true
+        path: dist
+
+    - name: Display structure
+      run: ls -lh dist/
+
+    - name: Generate checksums body
+      run: |
+        echo "" > release-body.md
+        echo "---" >> release-body.md
+        echo "" >> release-body.md
+        echo "## ✅ SHA256 Checksums" >> release-body.md
+        echo "" >> release-body.md
+        echo '```' >> release-body.md
+        (cd dist && sha256sum *) >> release-body.md
+        echo '```' >> release-body.md
+        echo "" >> release-body.md
+        echo "VirusTotal scan in progress — results appended automatically." >> release-body.md
+
+    - name: Update Release
+      id: create_release
+      uses: softprops/action-gh-release@v2
+      with:
+        files: dist/*
+        body_path: release-body.md
+        append_body: true
+        fail_on_unmatched_files: false
+
+    - name: VirusTotal Scan
+      uses: cssnr/virustotal-action@v1
+      continue-on-error: true
+      with:
+        vt_api_key: ${{ secrets.VT_API_KEY }}
+        file_globs: dist/*.zip
+        sha256: true
+        update_release: true
+        release_id: ${{ steps.create_release.outputs.id }}
+        release_heading: '### 🔬 VirusTotal'
+        collapsed: true
