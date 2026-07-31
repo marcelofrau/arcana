@@ -163,3 +163,13 @@ Format: [MADR](https://adr.github.io/madr/)-style. Statuses: Accepted / Supersed
 **Context**: Need per-build version identity for a pre-1.0 project.
 **Decision**: Version format `{prefix}-build.{N}+{githash}`. Prefix from `Directory.Build.props`; counter from `build/build-counter.txt` (`build/increment-version.ps1`); git hash auto-appended via `SourceRevisionId`. CLI `--version` and GUI About dialog read assembly info — never hardcoded.
 **Consequences**: Every build is uniquely identifiable; counter resets when the prefix bumps.
+
+---
+
+## ADR-0019: Two-Layer Theming (Icon + Color)
+
+**Status**: Accepted
+**Context**: Users want WinRAR-style icon theming alongside customizable window colors, both switchable at runtime from dropdowns, with the initial theme being a palette-derived scheme.
+**Decision**: Two independent theme layers. Icon themes keep the existing `IIconProvider` model (Papirus / Material / WinRAR `.theme.rar`). Color themes are `ColorTheme` definitions (15 semantic tokens + light/dark variant) applied at runtime by `ColorThemeService`, which writes every token (Color + Brush), `SystemAccentColor`, the DataGrid override brushes, and `RequestedThemeVariant` into `Application.Resources` — views consume them via `DynamicResource`, so switching is live. Color themes come from three sources: the hand-tuned "Arcana Mystic" palette, `docs/palletes/*.hex` files embedded as resources and auto-derived by `PaletteThemeFactory` (dropping a `.hex` file in `docs/palletes` adds a theme), and hand-crafted retro light themes (Windows 2000, Windows XP, BeOS). Default = `brewerviridis`. Both layers persist in `settings.json` (`IconTheme`, `ColorTheme`), replacing the earlier raw `{"theme": …}` write that clobbered other settings. See `docs/THEMES.md`.
+**Consequences**: Every `.hex` file becomes a theme without code changes. Palette mapping is deterministic (darkest→background, lightest→text, most-saturated mid-tone→accent, hue bands→semantic status colors) but generic — palettes with unusual hue distributions may need the accent/token exceptions tuned in the factory or a hand-crafted `ColorTheme` instead. Light retro themes require the Fluent theme variant switch, which also affects menu/button styling from FluentTheme defaults.
+

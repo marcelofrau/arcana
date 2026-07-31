@@ -17,7 +17,7 @@
                 <ResourceInclude Source="avares://Arcana.App/Themes/Colors.axaml"/>
             </ResourceDictionary.MergedDictionaries>
 
-            <!-- Fluent accent -->
+            <!-- Fluent accent (overridden at runtime by ColorThemeService) -->
             <Color x:Key="SystemAccentColor">#8B5CF6</Color>
 
             <icons:IconKeyToImageConverter x:Key="IconToImage"/>
@@ -25,18 +25,18 @@
             <conv:EqualsConverter x:Key="Equals"/>
             <conv:InvertBoolConverter x:Key="Invert"/>
 
-            <!-- DataGrid dark overrides -->
-            <SolidColorBrush x:Key="DataGridBackgroundBrush" Color="#1E1E28"/>
-            <SolidColorBrush x:Key="DataGridHeaderBackgroundBrush" Color="#262631"/>
-            <SolidColorBrush x:Key="DataGridGridLinesBrush" Color="#262631"/>
-            <SolidColorBrush x:Key="DataGridRowHoverBackgroundBrush" Color="#2A2A3A"/>
-            <SolidColorBrush x:Key="DataGridRowSelectedBackgroundBrush" Color="#3A2E6E"/>
-            <SolidColorBrush x:Key="DataGridRowSelectedUnfocusedBackgroundBrush" Color="#2C2448"/>
-            <SolidColorBrush x:Key="DataGridCellSelectedBackgroundBrush" Color="#3A2E6E"/>
-            <SolidColorBrush x:Key="DataGridColumnHeaderForegroundBrush" Color="#9A9AB0"/>
-            <SolidColorBrush x:Key="DataGridColumnHeaderHoverBackgroundBrush" Color="#2A2A3A"/>
-            <SolidColorBrush x:Key="DataGridColumnHeaderPressedBackgroundBrush" Color="#33334A"/>
-            <SolidColorBrush x:Key="DataGridCellForegroundBrush" Color="#E4E4EE"/>
+            <!-- DataGrid overrides (tokens are pushed at runtime by ColorThemeService) -->
+            <SolidColorBrush x:Key="DataGridBackgroundBrush" Color="{DynamicResource AppSurface}"/>
+            <SolidColorBrush x:Key="DataGridHeaderBackgroundBrush" Color="{DynamicResource AppSurfaceRaised}"/>
+            <SolidColorBrush x:Key="DataGridGridLinesBrush" Color="{DynamicResource AppBorder}"/>
+            <SolidColorBrush x:Key="DataGridRowHoverBackgroundBrush" Color="{DynamicResource AppHover}"/>
+            <SolidColorBrush x:Key="DataGridRowSelectedBackgroundBrush" Color="{DynamicResource AppSelection}"/>
+            <SolidColorBrush x:Key="DataGridRowSelectedUnfocusedBackgroundBrush" Color="{DynamicResource AppSelectionUnfocused}"/>
+            <SolidColorBrush x:Key="DataGridCellSelectedBackgroundBrush" Color="{DynamicResource AppSelection}"/>
+            <SolidColorBrush x:Key="DataGridColumnHeaderForegroundBrush" Color="{DynamicResource AppTextSecondary}"/>
+            <SolidColorBrush x:Key="DataGridColumnHeaderHoverBackgroundBrush" Color="{DynamicResource AppHover}"/>
+            <SolidColorBrush x:Key="DataGridColumnHeaderPressedBackgroundBrush" Color="{DynamicResource AppBorder}"/>
+            <SolidColorBrush x:Key="DataGridCellForegroundBrush" Color="{DynamicResource AppTextPrimary}"/>
         </ResourceDictionary>
     </Application.Resources>
 

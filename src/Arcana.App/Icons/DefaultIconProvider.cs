@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Avalonia.Media;
+using Serilog;
 
 namespace Arcana.App.Icons;
 
@@ -9,6 +10,8 @@ namespace Arcana.App.Icons;
 /// </summary>
 public sealed class DefaultIconProvider : IIconProvider
 {
+    private static readonly ILogger Log = Serilog.Log.ForContext<DefaultIconProvider>();
+
     public const double NativeSize = 24;
 
     public string Name => PapirusIconProvider.MaterialName;
@@ -53,26 +56,49 @@ public sealed class DefaultIconProvider : IIconProvider
 
     private readonly Dictionary<IconKey, DrawingImage> _cache = new();
     private readonly object _lock = new();
+    private Color _glyphColor = Color.Parse("#E4E4EE");
 
     public IImage? GetIcon(IconKey key)
     {
         if (!Paths.TryGetValue(key, out var data))
+        {
+            Log.Warning("No Material path defined for icon {Key}", key);
             return null;
+        }
 
         lock (_lock)
         {
             if (_cache.TryGetValue(key, out var cached))
                 return cached;
 
+            Log.Verbose("Building Material glyph for {Key}", key);
             var geometry = Geometry.Parse(data);
             var drawing = new GeometryDrawing
             {
-                Brush = new SolidColorBrush(Color.Parse("#E4E4EE")),
+                Brush = new SolidColorBrush(_glyphColor),
                 Geometry = geometry
             };
             var image = new DrawingImage { Drawing = drawing };
             _cache[key] = image;
             return image;
         }
+    }
+
+    /// <summary>
+    /// Recolors every cached glyph so Material fallback icons stay readable when
+    /// the color theme switches (e.g. dark glyphs on the light retro themes).
+    /// </summary>
+    public void UpdateGlyphColor(Color color)
+    {
+        lock (_lock)
+        {
+            _glyphColor = color;
+            foreach (var image in _cache.Values)
+            {
+                if (image.Drawing is GeometryDrawing drawing)
+                    drawing.Brush = new SolidColorBrush(color);
+            }
+        }
+        Log.Debug("Recolored {Count} Material glyphs to {Color}", _cache.Count, color);
     }
 }
