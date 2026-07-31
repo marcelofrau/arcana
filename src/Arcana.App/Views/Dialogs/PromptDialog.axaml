@@ -1,6 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:Arcana.App.ViewModels"
+        xmlns:l="using:Arcana.App.Localization"
         x:Class="Arcana.App.Views.Dialogs.PromptDialog"
         x:DataType="vm:PromptViewModel"
         Width="440"
@@ -21,8 +22,8 @@
                  Padding="6,3"
                  MinWidth="320"/>
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
-            <Button Content="Cancel" MinWidth="90" Click="OnCancelClick"/>
-            <Button Content="OK" MinWidth="90"
+            <Button Content="{l:Loc Key=common.cancel}" MinWidth="90" Click="OnCancelClick"/>
+            <Button Content="{l:Loc Key=common.ok}" MinWidth="90"
                     Click="OnOkClick"
                     Background="{DynamicResource AppAccentBrush}"
                     Foreground="White"/>

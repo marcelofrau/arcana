@@ -1,6 +1,7 @@
 using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Serilog;
 
 namespace Arcana.App.Services;
 
@@ -15,10 +16,15 @@ public sealed class AppSettings
     public bool ShowFileList { get; set; } = true;
     public bool ShowComments { get; set; } = true;
     public string LogLevel { get; set; } = "info";
+    public string Language { get; set; } = "en";
+    public string IconTheme { get; set; } = string.Empty;
+    public string ColorTheme { get; set; } = "brewerviridis";
 }
 
 public sealed class SettingsService
 {
+    private static readonly ILogger Log = Serilog.Log.ForContext<SettingsService>();
+
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         WriteIndented = true,
@@ -27,8 +33,13 @@ public sealed class SettingsService
 
     private readonly string _filePath;
 
-    public SettingsService()
+    public SettingsService(string? filePath = null)
     {
+        if (!string.IsNullOrEmpty(filePath))
+        {
+            _filePath = filePath;
+            return;
+        }
         var dir = Path.Combine(
             System.Environment.GetFolderPath(System.Environment.SpecialFolder.ApplicationData),
             "Arcana");
@@ -42,12 +53,14 @@ public sealed class SettingsService
             if (File.Exists(_filePath))
             {
                 var json = File.ReadAllText(_filePath);
-                return JsonSerializer.Deserialize<AppSettings>(json, JsonOptions) ?? new AppSettings();
+                var settings = JsonSerializer.Deserialize<AppSettings>(json, JsonOptions) ?? new AppSettings();
+                Log.Debug("Loaded settings from {File} (log level {LogLevel})", _filePath, settings.LogLevel);
+                return settings;
             }
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            // corrupted settings fall back to defaults
+            Log.Warning(ex, "Settings file {File} is corrupted; falling back to defaults", _filePath);
         }
         return new AppSettings();
     }
@@ -61,10 +74,11 @@ public sealed class SettingsService
                 Directory.CreateDirectory(dir);
             var json = JsonSerializer.Serialize(settings, JsonOptions);
             File.WriteAllText(_filePath, json);
+            Log.Debug("Saved settings to {File}", _filePath);
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            // settings persistence is best-effort
+            Log.Warning(ex, "Could not persist settings to {File}", _filePath);
         }
     }
 }

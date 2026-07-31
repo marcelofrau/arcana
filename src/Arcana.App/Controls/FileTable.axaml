@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:Arcana.App.ViewModels"
+             xmlns:l="using:Arcana.App.Localization"
              x:Class="Arcana.App.Controls.FileTable"
              x:DataType="vm:MainViewModel">
     <DataGrid x:Name="Grid"
@@ -17,7 +18,7 @@
               DoubleTapped="OnDoubleTapped"
               KeyDown="OnKeyDown">
         <DataGrid.Columns>
-            <DataGridTemplateColumn Header="Name" SortMemberPath="Name" Width="2*">
+            <DataGridTemplateColumn Header="{l:Loc Key=filetable.name}" SortMemberPath="Name" Width="2*">
                 <DataGridTemplateColumn.CellTemplate>
                     <DataTemplate x:DataType="vm:FileEntryItem">
                         <Border Padding="8,0">
@@ -31,15 +32,15 @@
                     </DataTemplate>
                 </DataGridTemplateColumn.CellTemplate>
             </DataGridTemplateColumn>
-            <DataGridTextColumn Header="Size" Binding="{Binding SizeText}"
+            <DataGridTextColumn Header="{l:Loc Key=filetable.size}" Binding="{Binding SizeText}"
                                 SortMemberPath="SizeValue" Width="90"/>
-            <DataGridTextColumn Header="Packed" Binding="{Binding PackedText}"
+            <DataGridTextColumn Header="{l:Loc Key=filetable.packed}" Binding="{Binding PackedText}"
                                 SortMemberPath="PackedValue" Width="90"/>
-            <DataGridTextColumn Header="Ratio" Binding="{Binding RatioText}"
+            <DataGridTextColumn Header="{l:Loc Key=filetable.ratio}" Binding="{Binding RatioText}"
                                 SortMemberPath="RatioValue" Width="60"/>
-            <DataGridTextColumn Header="Type" Binding="{Binding TypeText}"
+            <DataGridTextColumn Header="{l:Loc Key=filetable.type}" Binding="{Binding TypeText}"
                                 SortMemberPath="TypeValue" Width="90"/>
-            <DataGridTextColumn Header="Modified" Binding="{Binding ModifiedText}"
+            <DataGridTextColumn Header="{l:Loc Key=filetable.modified}" Binding="{Binding ModifiedText}"
                                 SortMemberPath="ModifiedText" Width="150"/>
         </DataGrid.Columns>
     </DataGrid>

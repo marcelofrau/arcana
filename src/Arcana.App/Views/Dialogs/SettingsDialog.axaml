@@ -1,6 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:Arcana.App.ViewModels"
+        xmlns:l="using:Arcana.App.Localization"
         x:Class="Arcana.App.Views.Dialogs.SettingsDialog"
         x:DataType="vm:SettingsViewModel"
         Width="420"
@@ -9,43 +10,49 @@
         CanResize="False"
         ShowInTaskbar="False"
         Background="{DynamicResource AppSurfaceRaisedBrush}"
-        Title="Settings">
+        Title="{l:Loc Key=dialog.settings.title}">
     <StackPanel Margin="20" Spacing="14">
-        <TextBlock Text="Settings"
+        <TextBlock Text="{l:Loc Key=dialog.settings.title}"
                    FontSize="16" FontWeight="SemiBold"
                    Foreground="{DynamicResource AppTextPrimaryBrush}"/>
-        <Grid ColumnDefinitions="160,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto"
+        <Grid ColumnDefinitions="160,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto"
               RowSpacing="10" ColumnSpacing="10">
-            <TextBlock Text="Default format" VerticalAlignment="Center"
+            <TextBlock Text="{l:Loc Key=dialog.settings.defaultFormat}" VerticalAlignment="Center"
                        Foreground="{DynamicResource AppTextSecondaryBrush}"/>
             <ComboBox Grid.Column="1"
                       ItemsSource="{Binding Formats}"
                       SelectedItem="{Binding DefaultFormat, Mode=TwoWay}"/>
-            <TextBlock Grid.Row="1" Text="Compression level" VerticalAlignment="Center"
+            <TextBlock Grid.Row="1" Text="{l:Loc Key=dialog.settings.compressionLevel}" VerticalAlignment="Center"
                        Foreground="{DynamicResource AppTextSecondaryBrush}"/>
             <ComboBox Grid.Row="1" Grid.Column="1"
                       ItemsSource="{Binding Levels}"
                       SelectedItem="{Binding DefaultCompressionLevel, Mode=TwoWay}"/>
-            <TextBlock Grid.Row="2" Text="Thread count" VerticalAlignment="Center"
+            <TextBlock Grid.Row="2" Text="{l:Loc Key=dialog.settings.threadCount}" VerticalAlignment="Center"
                        Foreground="{DynamicResource AppTextSecondaryBrush}"/>
             <NumericUpDown Grid.Row="2" Grid.Column="1"
                            Minimum="1" Maximum="64"
                            Value="{Binding ThreadCount, Mode=TwoWay}"
                            FormatString="0"/>
-            <TextBlock Grid.Row="3" Text="Parallel compression" VerticalAlignment="Center"
+            <TextBlock Grid.Row="3" Text="{l:Loc Key=dialog.settings.parallel}" VerticalAlignment="Center"
                        Foreground="{DynamicResource AppTextSecondaryBrush}"/>
             <CheckBox Grid.Row="3" Grid.Column="1"
                       IsChecked="{Binding EnableParallel, Mode=TwoWay}"
                       VerticalAlignment="Center"/>
-            <TextBlock Grid.Row="4" Text="Log level" VerticalAlignment="Center"
+            <TextBlock Grid.Row="4" Text="{l:Loc Key=dialog.settings.logLevel}" VerticalAlignment="Center"
                        Foreground="{DynamicResource AppTextSecondaryBrush}"/>
             <ComboBox Grid.Row="4" Grid.Column="1"
                       ItemsSource="{Binding LogLevels}"
                       SelectedItem="{Binding LogLevel, Mode=TwoWay}"/>
+            <TextBlock Grid.Row="5" Text="{l:Loc Key=dialog.settings.language}" VerticalAlignment="Center"
+                       Foreground="{DynamicResource AppTextSecondaryBrush}"/>
+            <ComboBox Grid.Row="5" Grid.Column="1"
+                      ItemsSource="{Binding Languages}"
+                      DisplayMemberBinding="{Binding DisplayName}"
+                      SelectedItem="{Binding Language, Mode=TwoWay}"/>
         </Grid>
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
-            <Button Content="Cancel" MinWidth="90" Click="OnCancelClick"/>
-            <Button Content="OK" MinWidth="90"
+            <Button Content="{l:Loc Key=common.cancel}" MinWidth="90" Click="OnCancelClick"/>
+            <Button Content="{l:Loc Key=common.ok}" MinWidth="90"
                     Click="OnOkClick"
                     Background="{DynamicResource AppAccentBrush}"
                     Foreground="White"/>

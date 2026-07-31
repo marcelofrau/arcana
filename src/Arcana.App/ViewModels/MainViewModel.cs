@@ -9,7 +9,10 @@ using System.Threading.Tasks;
 using Avalonia.Media;
 using Avalonia.Threading;
 using Arcana.App.Icons;
+using Arcana.App.Localization;
+using static Arcana.App.Localization.LocalizationManager;
 using Arcana.App.Services;
+using Arcana.App.Themes;
 using Arcana.Core.Compression;
 using Arcana.Core.Cryptography;
 using Arcana.Core.Filesystem;
@@ -17,16 +20,21 @@ using Arcana.Core.Logging;
 using Arcana.Core.Tools;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Serilog;
 
 namespace Arcana.App.ViewModels;
 
 public partial class MainViewModel : ObservableObject
 {
+    private static readonly ILogger Log = Serilog.Log.ForContext<MainViewModel>();
+
     private readonly ArchiveService _archiveService;
     private readonly DialogService _dialogs;
     private readonly IconThemeService _themes;
+    private readonly ColorThemeService _colorThemes;
     private readonly SettingsService _settingsService;
     private readonly FavoritesService _favorites;
+    private readonly DefaultIconProvider _defaultIcons;
 
     private AppSettings _settings;
 
@@ -34,6 +42,7 @@ public partial class MainViewModel : ObservableObject
     public PreviewViewModel Preview { get; }
     public ObservableCollection<ToolBarButton> Toolbar { get; } = [];
     public ObservableCollection<ThemeMenuItem> ThemeMenuItems { get; } = [];
+    public ObservableCollection<ThemeMenuItem> ColorThemeMenuItems { get; } = [];
     public IReadOnlyList<FavoriteItem> Favorites => _favorites.Items;
 
     [ObservableProperty]
@@ -66,17 +75,21 @@ public partial class MainViewModel : ObservableObject
     private string? _currentPath;
 
     public IconThemeService IconThemes => _themes;
+    public ColorThemeService ColorThemes => _colorThemes;
 
     public MainViewModel(ArchiveService archiveService, PreviewService previewService,
                          DialogService dialogs, IconThemeService themes,
                          DefaultIconProvider defaultIcons,
-                         SettingsService settingsService, FavoritesService favoritesService)
+                         SettingsService settingsService, FavoritesService favoritesService,
+                         ColorThemeService colorThemes)
     {
         _archiveService = archiveService;
         _dialogs = dialogs;
         _themes = themes;
         _settingsService = settingsService;
         _favorites = favoritesService;
+        _defaultIcons = defaultIcons;
+        _colorThemes = colorThemes;
         _settings = _settingsService.Load();
         Archive = new ArchiveViewModel();
         Preview = new PreviewViewModel(previewService);
@@ -97,6 +110,13 @@ public partial class MainViewModel : ObservableObject
             RefreshThemes();
         };
 
+        _colorThemes.Changed += (_, _) =>
+        {
+            _defaultIcons.UpdateGlyphColor(_colorThemes.Current.TextPrimary);
+            RefreshColorThemes();
+        };
+        _defaultIcons.UpdateGlyphColor(_colorThemes.Current.TextPrimary);
+
         _favorites.RebindCommands(_ => OpenFavoriteCommand);
 
         MenuBarVisible = _settings.ShowMenuBar;
@@ -106,6 +126,9 @@ public partial class MainViewModel : ObservableObject
 
         BuildToolbar();
         RefreshThemes();
+        RefreshColorThemes();
+        Log.Debug("MainViewModel initialized (icon theme {IconTheme}, color theme {ColorTheme})",
+            themes.Current.Name, _colorThemes.Current.Id);
     }
 
     // ---- Toolbar / theme helpers ----
@@ -113,14 +136,14 @@ public partial class MainViewModel : ObservableObject
     private void BuildToolbar()
     {
         Toolbar.Clear();
-        AddToolButton(IconKey.Open, "Open", "Open archive (Ctrl+O)", OpenArchiveCommand);
-        AddToolButton(IconKey.Add, "New", "New archive", NewArchiveCommand);
-        AddToolButton(IconKey.Extract, "Extract", "Extract to folder", ExtractCommand);
-        AddToolButton(IconKey.Test, "Test", "Test archive", TestCommand);
-        AddToolButton(IconKey.View, "View", "Toggle preview", TogglePreviewCommand);
-        AddToolButton(IconKey.Delete, "Delete", "Delete selected (Del)", DeleteCommand);
-        AddToolButton(IconKey.Find, "Find", "Find in folder (F3)", FindCommand);
-        AddToolButton(IconKey.Info, "Info", "Properties (Alt+Enter)", InfoCommand);
+        AddToolButton(IconKey.Open, T("toolbar.open"), T("toolbar.openTooltip"), OpenArchiveCommand);
+        AddToolButton(IconKey.Add, T("toolbar.new"), T("toolbar.newTooltip"), NewArchiveCommand);
+        AddToolButton(IconKey.Extract, T("toolbar.extract"), T("toolbar.extractTooltip"), ExtractCommand);
+        AddToolButton(IconKey.Test, T("toolbar.test"), T("toolbar.testTooltip"), TestCommand);
+        AddToolButton(IconKey.View, T("toolbar.view"), T("toolbar.viewTooltip"), TogglePreviewCommand);
+        AddToolButton(IconKey.Delete, T("toolbar.delete"), T("toolbar.deleteTooltip"), DeleteCommand);
+        AddToolButton(IconKey.Find, T("toolbar.find"), T("toolbar.findTooltip"), FindCommand);
+        AddToolButton(IconKey.Info, T("toolbar.info"), T("toolbar.infoTooltip"), InfoCommand);
         RefreshToolbarIcons();
     }
 
@@ -143,15 +166,18 @@ public partial class MainViewModel : ObservableObject
     private void RefreshThemes()
     {
         ThemeMenuItems.Clear();
-        AddThemeItem(PapirusIconProvider.BuiltInName);
-        AddThemeItem(PapirusIconProvider.MaterialName);
+        foreach (var name in _themes.BuiltInThemes)
+        {
+            AddThemeItem(name);
+        }
         foreach (var theme in _themes.InstalledThemes)
         {
+            var title = theme.Title;
             ThemeMenuItems.Add(new ThemeMenuItem
             {
-                Name = theme.Title,
-                ApplyCommand = ApplyThemeCommand,
-                IsCurrent = _themes.Current.Name == theme.Title,
+                Name = title,
+                ApplyCommand = new RelayCommand(() => ApplyTheme(title)),
+                IsCurrent = _themes.Current.Name == title,
             });
         }
     }
@@ -161,9 +187,24 @@ public partial class MainViewModel : ObservableObject
         ThemeMenuItems.Add(new ThemeMenuItem
         {
             Name = name,
-            ApplyCommand = ApplyThemeCommand,
+            ApplyCommand = new RelayCommand(() => ApplyTheme(name)),
             IsCurrent = _themes.Current.Name == name,
         });
+    }
+
+    private void RefreshColorThemes()
+    {
+        ColorThemeMenuItems.Clear();
+        foreach (var theme in _colorThemes.Themes)
+        {
+            ColorThemeMenuItems.Add(new ThemeMenuItem
+            {
+                Name = theme.Id,
+                Label = theme.DisplayName,
+                ApplyCommand = new RelayCommand(() => ApplyColorTheme(theme.Id)),
+                IsCurrent = _colorThemes.Current.Id == theme.Id,
+            });
+        }
     }
 
     // ---- Commands ----
@@ -180,11 +221,11 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private async Task NewArchive()
     {
-        var path = await _dialogs.PickSaveArchiveAsync("New Archive.zip");
+        var path = await _dialogs.PickSaveArchiveAsync(T("msg.newArchiveName"));
         if (path == null)
             return;
 
-        await RunBusyAsync("Creating archive...", async () =>
+        await RunBusyAsync(T("msg.busy.creating"), async () =>
         {
             var engine = ArchiveFactory.GetFormat(CompressionFormat.Zip);
             var archive = new Archive
@@ -203,7 +244,8 @@ public partial class MainViewModel : ObservableObject
 
     private async Task OpenPathAsync(string path)
     {
-        await RunBusyAsync($"Opening {Path.GetFileName(path)}...", async () =>
+        Log.Information("Opening archive {Path}", path);
+        await RunBusyAsync(T("msg.busy.opening", Path.GetFileName(path)), async () =>
         {
             var archive = await _archiveService.OpenAsync(path);
             await Dispatcher.UIThread.InvokeAsync(() =>
@@ -225,7 +267,7 @@ public partial class MainViewModel : ObservableObject
         if (nodes.Count == 0)
             return;
 
-        var dest = await _dialogs.PickDirectoryAsync("Select destination folder");
+        var dest = await _dialogs.PickDirectoryAsync(T("msg.selectDest"));
         if (dest == null)
             return;
 
@@ -235,16 +277,17 @@ public partial class MainViewModel : ObservableObject
         if (archive == null)
             return;
 
-        await RunBusyAsync("Extracting...", async () =>
+        await RunBusyAsync(T("msg.busy.extracting"), async () =>
         {
             var progress = new Progress<ProgressReport>(r =>
-                BusyText = $"Extracting {r.CurrentFile} ({r.FilesProcessed}/{r.TotalFiles})");
+                BusyText = T("msg.busy.extractProgress", r.CurrentFile, r.FilesProcessed, r.TotalFiles));
             foreach (var node in nodes)
                 await _archiveService.ExtractAsync(archive, node, targetDir, progress);
         });
 
-        await _dialogs.ShowInfoAsync("Extract complete",
-            $"Extracted to:\n{targetDir}");
+        Log.Information("Extracted {Count} node(s) to {Target}", nodes.Count, targetDir);
+        await _dialogs.ShowInfoAsync(T("msg.extractComplete"),
+            T("msg.extractedTo", targetDir));
     }
 
     private bool CanExtract() => Archive.HasArchive;
@@ -265,10 +308,10 @@ public partial class MainViewModel : ObservableObject
         if (archive == null)
             return;
 
-        await RunBusyAsync("Extracting...", async () =>
+        await RunBusyAsync(T("msg.busy.extracting"), async () =>
         {
             var progress = new Progress<ProgressReport>(r =>
-                BusyText = $"Extracting {r.CurrentFile} ({r.FilesProcessed}/{r.TotalFiles})");
+                BusyText = T("msg.busy.extractProgress", r.CurrentFile, r.FilesProcessed, r.TotalFiles));
             foreach (var node in nodes)
                 await _archiveService.ExtractAsync(archive, node, targetDir, progress);
         });
@@ -283,20 +326,21 @@ public partial class MainViewModel : ObservableObject
             return;
 
         IReadOnlyList<TestResult> results = Array.Empty<TestResult>();
-        await RunBusyAsync("Testing archive...", async () =>
+        await RunBusyAsync(T("msg.busy.testing"), async () =>
         {
             var progress = new Progress<ProgressReport>(r =>
-                BusyText = $"Testing {r.CurrentFile} ({r.FilesProcessed}/{r.TotalFiles})");
+                BusyText = T("msg.busy.testProgress", r.CurrentFile, r.FilesProcessed, r.TotalFiles));
             results = await _archiveService.TestAsync(archive, node, progress);
         });
 
         var ok = results.Count(r => r.Success);
         var failed = results.Count - ok;
+        Log.Information("Archive test finished: {Ok} OK, {Failed} failed", ok, failed);
         var detail = failed > 0
-            ? "\n\nFailed:\n" + string.Join("\n", results.Where(r => !r.Success).Take(10).Select(r => r.Path))
+            ? T("msg.failedDetail", string.Join("\n", results.Where(r => !r.Success).Take(10).Select(r => r.Path)))
             : "";
-        await _dialogs.ShowInfoAsync("Test result",
-            $"{ok} file(s) OK, {failed} failed.{detail}");
+        await _dialogs.ShowInfoAsync(T("msg.testResult"),
+            T("msg.testResultDetail", ok, failed) + detail);
     }
 
     private bool CanTest() => Archive.HasArchive;
@@ -308,14 +352,16 @@ public partial class MainViewModel : ObservableObject
         if (archive == null)
             return;
 
-        var files = await _dialogs.PickFilesAsync("Add files to archive", allowMultiple: true);
+        var files = await _dialogs.PickFilesAsync(T("msg.addFilesPicker"), allowMultiple: true);
         if (files.Count == 0)
             return;
+
+        Log.Debug("Adding {Count} file(s) to archive", files.Count);
 
         var inPlace = _currentPath != null && IsWritableFormat(archive.Format);
         var targetPath = inPlace
             ? _currentPath!
-            : await _dialogs.PickSaveCopyAsync(ArchiveName.Length > 0 ? ArchiveName : "archive.zip");
+            : await _dialogs.PickSaveCopyAsync(ArchiveName.Length > 0 ? ArchiveName : T("msg.newArchiveName"));
         if (targetPath == null)
             return;
 
@@ -323,7 +369,7 @@ public partial class MainViewModel : ObservableObject
         var prefix = Archive.CurrentNode?.FullPath.TrimStart('/') ?? "";
         var tempPath = targetPath + ".tmp";
 
-        await RunBusyAsync("Adding files...", async () =>
+        await RunBusyAsync(T("msg.busy.adding"), async () =>
         {
             foreach (var file in files)
             {
@@ -359,7 +405,8 @@ public partial class MainViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            await _dialogs.ShowInfoAsync("Error", $"Could not update archive:\n{ex.Message}");
+            Log.Error(ex, "Could not update archive in place (temp {Temp}, target {Target})", tempPath, targetPath);
+            await _dialogs.ShowInfoAsync(T("msg.error"), T("msg.couldNotUpdate", ex.Message));
             try { File.Delete(tempPath); } catch { /* best effort */ }
             return;
         }
@@ -377,7 +424,7 @@ public partial class MainViewModel : ObservableObject
         if (path == null)
             return;
 
-        await RunBusyAsync("Saving copy...", async () =>
+        await RunBusyAsync(T("msg.busy.savingCopy"), async () =>
         {
             var targetFormat = IsWritableFormat(archive.Format) ? archive.Format : CompressionFormat.Zip;
             var engine = ArchiveFactory.GetFormat(targetFormat);
@@ -385,7 +432,7 @@ public partial class MainViewModel : ObservableObject
             await engine.SaveAsync(archive, stream, BuildOptions(targetFormat));
         });
 
-        await _dialogs.ShowInfoAsync("Save complete", $"Saved copy to:\n{path}");
+        await _dialogs.ShowInfoAsync(T("msg.saveComplete"), T("msg.savedCopy", path));
     }
 
     [RelayCommand(CanExecute = nameof(CanTest))]
@@ -394,19 +441,19 @@ public partial class MainViewModel : ObservableObject
         if (_currentPath == null)
             return;
 
-        var dest = await _dialogs.PickDirectoryAsync("Select folder for split parts");
+        var dest = await _dialogs.PickDirectoryAsync(T("msg.selectFolderForSplit"));
         if (dest == null)
             return;
 
-        var sizeMb = await _dialogs.ShowPromptAsync("Part size (MB)", "100");
+        var sizeMb = await _dialogs.ShowPromptAsync(T("dialog.split.partSize"), "100");
         if (sizeMb == null || !double.TryParse(sizeMb, out var mb) || mb <= 0)
             return;
 
-        await RunBusyAsync("Splitting...", async () =>
+        await RunBusyAsync(T("msg.busy.splitting"), async () =>
         {
             var splitter = new FileSplitter();
             var progress = new Progress<ProgressReport>(r =>
-                BusyText = $"Splitting {r.CurrentFile} ({ByteFormat.Format(r.BytesProcessed)}/{ByteFormat.Format(r.TotalBytes)})");
+                BusyText = T("msg.busy.splitProgress", r.CurrentFile, ByteFormat.Format(r.BytesProcessed), ByteFormat.Format(r.TotalBytes)));
             await splitter.SplitAsync(_currentPath, dest, (long)(mb * 1024 * 1024), progress);
         });
     }
@@ -414,7 +461,7 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private async Task SplitFile()
     {
-        var files = await _dialogs.PickFilesAsync("Select file to split", false);
+        var files = await _dialogs.PickFilesAsync(T("msg.selectFileToSplit"), false);
         if (files.Count == 0)
             return;
 
@@ -422,14 +469,16 @@ public partial class MainViewModel : ObservableObject
         if (choice == null)
             return;
 
-        await RunBusyAsync("Splitting...", async () =>
+        await RunBusyAsync(T("msg.busy.splitting"), async () =>
         {
             var splitter = new FileSplitter();
             var progress = new Progress<ProgressReport>(r =>
-                BusyText = $"Splitting {r.CurrentFile} ({ByteFormat.Format(r.BytesProcessed)}/{ByteFormat.Format(r.TotalBytes)})");
+                BusyText = T("msg.busy.splitProgress", r.CurrentFile, ByteFormat.Format(r.BytesProcessed), ByteFormat.Format(r.TotalBytes)));
             await splitter.SplitAsync(choice.SourcePath, choice.DestinationDir,
                 (long)(choice.PartSizeMb * 1024 * 1024), progress, hjsplitMode: choice.HjsplitMode);
         });
+        Log.Information("Split {Source} into {PartSize}MB parts at {Dest}",
+            choice.SourcePath, choice.PartSizeMb, choice.DestinationDir);
     }
 
     [RelayCommand]
@@ -439,20 +488,21 @@ public partial class MainViewModel : ObservableObject
         if (choice == null)
             return;
 
-        await RunBusyAsync("Joining...", async () =>
+        var parts = FileJoiner.AutoDiscoverParts(choice.FirstPart);
+        await RunBusyAsync(T("msg.busy.joining"), async () =>
         {
-            var parts = FileJoiner.AutoDiscoverParts(choice.FirstPart);
             var joiner = new FileJoiner();
             var progress = new Progress<ProgressReport>(r =>
-                BusyText = $"Joining {r.CurrentFile} ({ByteFormat.Format(r.BytesProcessed)}/{ByteFormat.Format(r.TotalBytes)})");
+                BusyText = T("msg.busy.joinProgress", r.CurrentFile, ByteFormat.Format(r.BytesProcessed), ByteFormat.Format(r.TotalBytes)));
             await joiner.JoinAsync(parts, choice.OutputPath, progress);
         });
+        Log.Information("Joined {Count} part(s) into {Output}", parts.Count, choice.OutputPath);
     }
 
     [RelayCommand]
     private async Task HashFile()
     {
-        var files = await _dialogs.PickFilesAsync("Select file to hash", false);
+        var files = await _dialogs.PickFilesAsync(T("msg.selectFileToHash"), false);
         if (files.Count == 0)
             return;
 
@@ -469,7 +519,7 @@ public partial class MainViewModel : ObservableObject
         };
 
         var hash = "";
-        await RunBusyAsync("Hashing...", async () =>
+        await RunBusyAsync(T("msg.busy.hashing"), async () =>
         {
             var calc = new HashCalculator();
             await using var stream = File.OpenRead(choice.FilePath);
@@ -477,7 +527,10 @@ public partial class MainViewModel : ObservableObject
         });
 
         if (hash.Length > 0)
+        {
+            Log.Information("Computed {Algorithm} hash for {File}", choice.Algorithm, choice.FilePath);
             await _dialogs.ShowInfoAsync($"{choice.Algorithm} hash", hash);
+        }
     }
 
     [RelayCommand(CanExecute = nameof(CanTest))]
@@ -497,15 +550,15 @@ public partial class MainViewModel : ObservableObject
         if (path == null)
             return;
 
-        await RunBusyAsync("Converting...", async () =>
+        await RunBusyAsync(T("msg.busy.converting"), async () =>
         {
             var targetFormat = ParseFormat(choice.Format);
             var engine = ArchiveFactory.GetFormat(targetFormat);
             await using var stream = File.Create(path);
             await engine.SaveAsync(archive, stream, BuildOptions(targetFormat, choice.Level));
         });
-
-        await _dialogs.ShowInfoAsync("Convert complete", $"Created:\n{path}");
+        Log.Information("Converted archive to {Target}", path);
+        await _dialogs.ShowInfoAsync(T("msg.convertComplete"), T("msg.converted", path));
     }
 
     [RelayCommand(CanExecute = nameof(CanTest))]
@@ -515,7 +568,7 @@ public partial class MainViewModel : ObservableObject
         if (archive == null)
             return;
 
-        var password = await _dialogs.ShowPasswordAsync("Set password");
+        var password = await _dialogs.ShowPasswordAsync(T("dialog.password.title"));
         if (string.IsNullOrEmpty(password))
             return;
 
@@ -527,7 +580,9 @@ public partial class MainViewModel : ObservableObject
             return;
 
         var tempPath = targetPath + ".tmp";
-        await RunBusyAsync("Encrypting...", async () =>
+        Log.Information("Setting password on archive (output {Target}, in-place {InPlace})",
+            targetPath, inPlace);
+        await RunBusyAsync(T("msg.busy.encrypting"), async () =>
         {
             var engine = ArchiveFactory.GetFormat(CompressionFormat.Zip);
             var options = new CompressionOptions
@@ -575,6 +630,8 @@ public partial class MainViewModel : ObservableObject
                 $"Only in second: {onlyB.Count}",
                 $"Different size/packed: {different.Count}",
             };
+            Log.Debug("Compared archives: {First} vs {Second} ({OnlyA} only first, {OnlyB} only second, {Diff} different)",
+                Path.GetFileName(_currentPath), Path.GetFileName(path), onlyA.Count, onlyB.Count, different.Count);
             if (onlyA.Count > 0)
                 lines.Add("\nOnly in first:\n  " + string.Join("\n  ", onlyA.Take(10)));
             if (onlyB.Count > 0)
@@ -582,7 +639,7 @@ public partial class MainViewModel : ObservableObject
             if (different.Count > 0)
                 lines.Add("\nDifferent:\n  " + string.Join("\n  ", different.Take(10)));
 
-            await _dialogs.ShowInfoAsync("Compare archives", string.Join("\n", lines));
+            await _dialogs.ShowInfoAsync(T("msg.compare"), string.Join("\n", lines));
         }
         finally
         {
@@ -612,13 +669,17 @@ public partial class MainViewModel : ObservableObject
             ThreadCount = vm.ThreadCount,
             EnableParallel = vm.EnableParallel,
             LogLevel = vm.LogLevel,
+            Language = vm.Language?.Code ?? "en",
             ShowMenuBar = MenuBarVisible,
             ShowToolbar = ToolbarVisible,
             ShowFileList = FileListVisible,
             ShowComments = CommentsVisible,
         };
         _settingsService.Save(_settings);
+        LocalizationManager.Instance.SetCulture(vm.Language?.Code ?? "en");
         LogConfig.SetLevel(vm.LogLevel);
+        Log.Information("Settings saved (default format {Format}, log level {LogLevel})",
+            _settings.DefaultFormat, vm.LogLevel);
     }
 
     [RelayCommand]
@@ -627,11 +688,12 @@ public partial class MainViewModel : ObservableObject
         if (_currentPath == null)
             return;
 
-        var name = await _dialogs.ShowPromptAsync("Add to Favorites", ArchiveName);
+        var name = await _dialogs.ShowPromptAsync(T("msg.addToFavoritesPrompt"), ArchiveName);
         if (string.IsNullOrWhiteSpace(name))
             return;
 
         _favorites.Add(name.Trim(), _currentPath);
+        Log.Debug("Added favorite {Name}", name.Trim());
     }
 
     [RelayCommand]
@@ -639,7 +701,8 @@ public partial class MainViewModel : ObservableObject
     {
         if (string.IsNullOrEmpty(item.Path) || !File.Exists(item.Path))
         {
-            await _dialogs.ShowInfoAsync("Favorite not found", $"File no longer exists:\n{item.Path}");
+            Log.Warning("Favorite {Name} points to missing file {Path}", item.Name, item.Path);
+            await _dialogs.ShowInfoAsync(T("msg.favoriteNotFound"), T("msg.favoriteMissing", item.Path));
             return;
         }
         await OpenPathAsync(item.Path);
@@ -650,12 +713,12 @@ public partial class MainViewModel : ObservableObject
     {
         if (_favorites.Items.Count == 0)
         {
-            await _dialogs.ShowInfoAsync("Favorites", "No favorites yet. Use 'Add to Favorites'.");
+            await _dialogs.ShowInfoAsync(T("msg.favorites"), T("msg.noFavorites"));
             return;
         }
 
         var list = _favorites.Items.Select(f => f.Name).ToList();
-        await _dialogs.ShowInfoAsync("Favorites",
+        await _dialogs.ShowInfoAsync(T("msg.favorites"),
             string.Join("\n", list) + "\n\nRemove via Favorites menu → right-click not supported yet.");
     }
 
@@ -671,15 +734,7 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private async Task HelpTopics()
     {
-        await _dialogs.ShowInfoAsync("Arcana Help",
-            "Arcana — archive manager\n\n" +
-            "Open (Ctrl+O): open an archive\n" +
-            "Add (Alt+A): add files to the archive\n" +
-            "Extract (Alt+E / Ctrl+E): extract to folder\n" +
-            "Test (Alt+T): verify archive integrity\n" +
-            "Convert (Alt+C): change archive format\n" +
-            "Find (F3): filter the current folder\n" +
-            "Select All (Ctrl+A): select every entry");
+        await _dialogs.ShowInfoAsync(T("msg.helpTitle"), T("msg.helpDetail"));
     }
 
     [RelayCommand]
@@ -768,10 +823,11 @@ public partial class MainViewModel : ObservableObject
         if (item == null)
             return;
 
-        var newName = await _dialogs.ShowPromptAsync("Rename", item.Name);
+        var newName = await _dialogs.ShowPromptAsync(T("msg.rename"), item.Name);
         if (string.IsNullOrWhiteSpace(newName) || newName == item.Name)
             return;
 
+        Log.Debug("Renamed {Old} to {New}", item.Name, newName);
         Archive.Archive?.Vfs.RenameNode(item.Node, newName);
         Archive.RefreshCurrent();
     }
@@ -786,15 +842,15 @@ public partial class MainViewModel : ObservableObject
             return;
 
         var n = item.Node;
-        var type = n.Type == NodeType.Directory ? "Folder" : "File";
+        var type = n.Type == NodeType.Directory ? T("msg.typeFolder") : T("msg.typeFile");
         var message =
-            $"Name:     {n.FullPath}\n" +
-            $"Type:     {type}\n" +
-            $"Size:     {ByteFormat.Format(n.OriginalSize)}\n" +
-            $"Packed:   {ByteFormat.Format(n.CompressedSize)}\n" +
-            $"Modified: {n.LastModified:yyyy-MM-dd HH:mm:ss}";
+            $"{T("msg.propertyName")}  {n.FullPath}\n" +
+            $"{T("msg.propertyType")}  {type}\n" +
+            $"{T("msg.propertySize")}  {ByteFormat.Format(n.OriginalSize)}\n" +
+            $"{T("msg.propertyPacked")}  {ByteFormat.Format(n.CompressedSize)}\n" +
+            $"{T("msg.propertyModified")} {n.LastModified:yyyy-MM-dd HH:mm:ss}";
 
-        await _dialogs.ShowInfoAsync("Properties", message);
+        await _dialogs.ShowInfoAsync(T("msg.properties"), message);
     }
 
     private bool CanInfo() => Archive.SelectedItem != null;
@@ -809,16 +865,22 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private async Task Find()
     {
-        var term = await _dialogs.ShowPromptAsync("Find in folder", Archive.Filter);
+        var term = await _dialogs.ShowPromptAsync(T("msg.findInFolder"), Archive.Filter);
         if (term == null)
             return;
         Archive.Filter = term;
     }
 
-    [RelayCommand]
-    private void ApplyTheme(ThemeMenuItem item)
+    private void ApplyTheme(string name)
     {
-        _themes.ApplyTheme(item.Name);
+        Log.Debug("Applying icon theme {Theme}", name);
+        _themes.ApplyTheme(name);
+    }
+
+    private void ApplyColorTheme(string id)
+    {
+        Log.Debug("Applying color theme {Theme}", id);
+        _colorThemes.Apply(id);
     }
 
     [RelayCommand]
@@ -829,10 +891,9 @@ public partial class MainViewModel : ObservableObject
             return;
 
         if (_themes.InstallTheme(path))
-            StatusText = "Theme installed.";
+            StatusText = T("msg.themeInstalled");
         else
-            await _dialogs.ShowInfoAsync("Install failed",
-                "The selected file is not a valid WinRAR theme (.theme.rar).");
+            await _dialogs.ShowInfoAsync(T("msg.installFailed"), T("msg.installFailedDetail"));
     }
 
     [RelayCommand]
@@ -844,12 +905,7 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private async Task About()
     {
-        await _dialogs.ShowInfoAsync("About Arcana",
-            "Arcana — archive manager\n" +
-            $"Version {VersionInfo}\n\n" +
-            "Classic spirit, modern skin.\n\n" +
-            "Supported formats: zip, 7z, rar, tar, gz, bz2, xz, zst,\n" +
-            "cab, arj, lzh, lzma, br, lz4, snappy.");
+        await _dialogs.ShowInfoAsync(T("msg.about"), T("msg.aboutDetail", VersionInfo, "zip, 7z, rar, tar, gz, bz2, xz, zst, cab, arj, lzh, lzma, br, lz4, snappy"));
     }
 
     private static string VersionInfo
@@ -880,12 +936,14 @@ public partial class MainViewModel : ObservableObject
         StatusText = busyText;
         try
         {
+            Log.Debug("Busy: {BusyText}", busyText);
             await Task.Run(work);
         }
         catch (Exception ex)
         {
-            await _dialogs.ShowInfoAsync("Error", ex.Message);
-            StatusText = "Error";
+            Log.Error(ex, "Operation failed: {BusyText}", busyText);
+            await _dialogs.ShowInfoAsync(T("msg.error"), ex.Message);
+            StatusText = T("msg.error");
         }
         finally
         {
@@ -918,6 +976,6 @@ public partial class MainViewModel : ObservableObject
             return;
         StatusText = Archive.HasArchive
             ? $"{ArchiveName} · {Archive.BuildStatusText()}"
-            : "Ready";
+            : T("status.ready");
     }
 }

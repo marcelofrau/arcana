@@ -25,6 +25,12 @@
 
   <ItemGroup>
     <AvaloniaResource Include="Assets/**" />
+    <AvaloniaResource Include="Resources/**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- docs/palletes/*.hex → palette themes (see docs/THEMES.md) -->
+    <EmbeddedResource Include="..\..\docs\palletes\*.hex" Link="Palettes\%(Filename)%(Extension)" />
   </ItemGroup>
 
   <ItemGroup>

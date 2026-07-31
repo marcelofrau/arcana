@@ -1,6 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:Arcana.App.ViewModels"
+        xmlns:l="using:Arcana.App.Localization"
         x:Class="Arcana.App.Views.Dialogs.HashFileDialog"
         x:DataType="vm:HashFileViewModel"
         Width="520"
@@ -9,9 +10,9 @@
         CanResize="False"
         ShowInTaskbar="False"
         Background="{DynamicResource AppSurfaceRaisedBrush}"
-        Title="Calculate hash">
+        Title="{l:Loc Key=dialog.hash.title}">
     <StackPanel Margin="20" Spacing="12">
-        <TextBlock Text="Calculate hash"
+        <TextBlock Text="{l:Loc Key=dialog.hash.title}"
                    FontSize="16" FontWeight="SemiBold"
                    Foreground="{DynamicResource AppTextPrimaryBrush}"/>
         <TextBlock Text="{Binding FilePath}"
@@ -20,15 +21,15 @@
         <Grid ColumnDefinitions="120,*"
               RowDefinitions="Auto"
               RowSpacing="10" ColumnSpacing="10">
-            <TextBlock Text="Algorithm" VerticalAlignment="Center"
+            <TextBlock Text="{l:Loc Key=dialog.hash.algorithm}" VerticalAlignment="Center"
                        Foreground="{DynamicResource AppTextSecondaryBrush}"/>
             <ComboBox Grid.Column="1"
                       ItemsSource="{Binding Algorithms}"
                       SelectedItem="{Binding Algorithm, Mode=TwoWay}"/>
         </Grid>
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
-            <Button Content="Cancel" MinWidth="90" Click="OnCancelClick"/>
-            <Button Content="OK" MinWidth="90"
+            <Button Content="{l:Loc Key=common.cancel}" MinWidth="90" Click="OnCancelClick"/>
+            <Button Content="{l:Loc Key=common.ok}" MinWidth="90"
                     Click="OnOkClick"
                     Background="{DynamicResource AppAccentBrush}"
                     Foreground="White"/>

@@ -4,6 +4,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Platform.Storage;
+using Arcana.App.Localization;
 using Arcana.App.ViewModels;
 using Arcana.App.Views.Dialogs;
 
@@ -173,12 +174,12 @@ public sealed class DialogService
         return vm.Confirmed ? vm.Value : null;
     }
 
-    public async Task<string?> ShowPasswordAsync(string title = "Set password")
+    public async Task<string?> ShowPasswordAsync(string title = null!)
     {
         if (MainWindow == null)
             return null;
 
-        var vm = new PasswordViewModel { Title = title };
+        var vm = new PasswordViewModel { Title = title ?? LocalizationManager.T("dialog.password.title") };
         var dialog = new PasswordDialog { DataContext = vm };
         await dialog.ShowDialog(MainWindow);
         return vm.Confirmed ? vm.Password : null;

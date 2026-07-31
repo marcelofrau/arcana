@@ -1,6 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:Arcana.App.ViewModels"
+        xmlns:l="using:Arcana.App.Localization"
         x:Class="Arcana.App.Views.Dialogs.SplitFileDialog"
         x:DataType="vm:SplitFileViewModel"
         Width="520"
@@ -9,9 +10,9 @@
         CanResize="False"
         ShowInTaskbar="False"
         Background="{DynamicResource AppSurfaceRaisedBrush}"
-        Title="Split file">
+        Title="{l:Loc Key=dialog.split.title}">
     <StackPanel Margin="20" Spacing="12">
-        <TextBlock Text="Split file"
+        <TextBlock Text="{l:Loc Key=dialog.split.title}"
                    FontSize="16" FontWeight="SemiBold"
                    Foreground="{DynamicResource AppTextPrimaryBrush}"/>
         <TextBlock Text="{Binding SourcePath}"
@@ -20,27 +21,27 @@
         <Grid ColumnDefinitions="120,*,Auto"
               RowDefinitions="Auto,Auto,Auto,Auto"
               RowSpacing="10" ColumnSpacing="10">
-            <TextBlock Text="Destination folder" VerticalAlignment="Center"
+            <TextBlock Text="{l:Loc Key=dialog.split.destination}" VerticalAlignment="Center"
                        Foreground="{DynamicResource AppTextSecondaryBrush}"/>
             <TextBox Grid.Column="1" Text="{Binding DestinationDir, Mode=TwoWay}"
                      Background="{DynamicResource AppBackgroundBrush}"
                      Foreground="{DynamicResource AppTextPrimaryBrush}"
                      BorderBrush="{DynamicResource AppBorderBrush}"
                      Padding="6,3"/>
-            <Button Grid.Column="2" Content="Browse…" MinWidth="80" Click="OnBrowseDestClick"/>
+            <Button Grid.Column="2" Content="{l:Loc Key=common.browse}" MinWidth="80" Click="OnBrowseDestClick"/>
 
-            <TextBlock Grid.Row="1" Text="Part size" VerticalAlignment="Center"
+            <TextBlock Grid.Row="1" Text="{l:Loc Key=dialog.split.partSize}" VerticalAlignment="Center"
                        Foreground="{DynamicResource AppTextSecondaryBrush}"/>
             <ComboBox Grid.Row="1" Grid.Column="1"
                       ItemsSource="{Binding PartSizesMb}"
                       SelectedItem="{Binding PartSizeMb, Mode=TwoWay}"/>
 
-            <CheckBox Grid.Row="2" Grid.Column="1" Content="HJSplit mode (file.001, file.002…)"
+            <CheckBox Grid.Row="2" Grid.Column="1" Content="{l:Loc Key=dialog.split.hjsplit}"
                       IsChecked="{Binding HjsplitMode, Mode=TwoWay}"/>
         </Grid>
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
-            <Button Content="Cancel" MinWidth="90" Click="OnCancelClick"/>
-            <Button Content="OK" MinWidth="90"
+            <Button Content="{l:Loc Key=common.cancel}" MinWidth="90" Click="OnCancelClick"/>
+            <Button Content="{l:Loc Key=common.ok}" MinWidth="90"
                     Click="OnOkClick"
                     Background="{DynamicResource AppAccentBrush}"
                     Foreground="White"/>

@@ -1,15 +1,20 @@
+using Arcana.App.Localization;
 using Arcana.App.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
+using Serilog;
 
 namespace Arcana.App.ViewModels;
 
 public partial class SettingsViewModel : ObservableObject
 {
+    private static readonly ILogger Log = Serilog.Log.ForContext<SettingsViewModel>();
+
     private readonly SettingsService _service;
 
     public string[] Formats { get; } = { "zip", "7z", "zstd", "tar" };
     public int[] Levels { get; } = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 };
     public string[] LogLevels { get; } = { "trace", "debug", "info", "warn", "error", "fatal" };
+    public IReadOnlyList<LocalizationManager.LanguageInfo> Languages { get; } = LocalizationManager.Instance.Languages;
 
     [ObservableProperty]
     private string _defaultFormat = "zip";
@@ -26,6 +31,9 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     private string _logLevel = "info";
 
+    [ObservableProperty]
+    private LocalizationManager.LanguageInfo? _language;
+
     public SettingsViewModel(SettingsService service)
     {
         _service = service;
@@ -35,6 +43,7 @@ public partial class SettingsViewModel : ObservableObject
         ThreadCount = s.ThreadCount;
         EnableParallel = s.EnableParallel;
         LogLevel = s.LogLevel;
+        Language = Languages.FirstOrDefault(x => x.Code == s.Language);
     }
 
     public void Save()
@@ -46,6 +55,9 @@ public partial class SettingsViewModel : ObservableObject
             ThreadCount = ThreadCount,
             EnableParallel = EnableParallel,
             LogLevel = LogLevel,
+            Language = Language?.Code ?? "en",
         });
+        Log.Information("Settings dialog saved (format {Format}, level {Level}, log {LogLevel}, language {Language})",
+            DefaultFormat, DefaultCompressionLevel, LogLevel, Language);
     }
 }
