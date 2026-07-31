@@ -1,0 +1,37 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:l="using:Arcana.App.Localization"
+        x:Class="Arcana.App.Views.Dialogs.ErrorDialog"
+        Width="640"
+        Height="420"
+        WindowStartupLocation="CenterOwner"
+        CanResize="True"
+        ShowInTaskbar="False"
+        Background="{DynamicResource AppSurfaceRaisedBrush}"
+        Title="{l:Loc Key=error.title}">
+    <DockPanel Margin="20">
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal"
+                    HorizontalAlignment="Right" Spacing="8" Margin="0,16,0,0">
+            <Button Content="{l:Loc Key=error.copy}" MinWidth="110" Click="OnCopyClick"/>
+            <Button Content="{l:Loc Key=error.restart}" MinWidth="90" Click="OnRestartClick"/>
+            <Button Content="{l:Loc Key=error.continue}" MinWidth="90" Click="OnContinueClick"/>
+            <Button Content="{l:Loc Key=error.close}" MinWidth="90" Click="OnCloseClick"/>
+        </StackPanel>
+        <StackPanel Spacing="12">
+            <TextBlock Text="{l:Loc Key=error.title}"
+                       FontSize="16" FontWeight="SemiBold"
+                       Foreground="{DynamicResource AppTextPrimaryBrush}"/>
+            <TextBlock Text="{l:Loc Key=error.summary}"
+                       TextWrapping="Wrap"
+                       Foreground="{DynamicResource AppTextSecondaryBrush}"/>
+            <TextBlock Text="{l:Loc Key=error.detailsLabel}"
+                       Foreground="{DynamicResource AppTextSecondaryBrush}"/>
+            <TextBox x:Name="DetailsBox"
+                     IsReadOnly="True"
+                     AcceptsReturn="True"
+                     TextWrapping="NoWrap"
+                     FontFamily="Cascadia Mono,Consolas,monospace"
+                     FontSize="11"/>
+        </StackPanel>
+    </DockPanel>
+</Window>
