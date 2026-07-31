@@ -14,14 +14,16 @@ public static class LogConfig
     public static void Init()
     {
         Directory.CreateDirectory(LogDirectory);
+        var logFile = Path.Combine(LogDirectory, "arcana-.log");
         Log.Logger = new LoggerConfiguration()
             .MinimumLevel.ControlledBy(LevelSwitch)
             .WriteTo.Console(outputTemplate: "[{Level:u3}] {Message:lj}{NewLine}{Exception}")
             .WriteTo.File(
-                Path.Combine(LogDirectory, "arcana-.log"),
+                logFile,
                 rollingInterval: RollingInterval.Day,
                 outputTemplate: "[{Timestamp:yyyy-MM-dd HH:mm:ss} {Level:u3}] {Message:lj}{NewLine}{Exception}")
             .CreateLogger();
+        Log.Information("Arcana logging initialized (file {LogFile})", logFile);
     }
 
     public static void SetLevel(string level)

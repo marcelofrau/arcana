@@ -2,7 +2,7 @@ Build env
 - SDK: dotnet 10.0 (C# 12)
 - Solution: `src/Arcana.slnx` (Core/Cli/App/Mobile/Core.Tests/App.Tests)
 - Build: `dotnet build src/Arcana.slnx`
-- Test: `dotnet test src/Arcana.slnx` — 137 tests (134 Core + 3 App)
+- Test: `dotnet test src/Arcana.slnx` — 155 tests (152 Core + 3 App)
 - Run CLI: `dotnet run --project src/Arcana.Cli -- <args>`
 - Build scripts: `build/clean.ps1`, `build/increment-version.ps1`, `build/build-counter.txt` (`prefix|counter`, resets to 1 on prefix bump)
 
@@ -36,6 +36,14 @@ Core (Arcana.Core/)
 - Logging: LogConfig.cs, Serilog across all engines/commands/tools
 
 Engines — Password via engine.Password, wired SaveAsync (EncryptStream) / OpenAsync (DecryptStream or native SharpCompress).
+
+Logging — MANDATE: every code path logs.
+- Pattern: `private static readonly ILogger Log = Serilog.Log.ForContext<X>();` (static classes: `ForContext(typeof(X))`).
+- Levels: Verbose = inner hot-path detail (icon cache build, format descriptor register); Debug = flow/progress (navigate, preview load, settings load); Information = user-visible milestones (archive open/extract/test/save, add/remove favorite, theme switch, command completion); Warning = recoverable (corrupted settings/favorites, image decode fail, in-place update failure); Error = failure with exception (operation failed, format assembly load fail).
+- NEVER log passwords, keys, or archive contents — log "password set" / "encrypting" intent, never the secret value. File paths OK.
+- Log location: console + `%APPDATA%\Arcana\logs\arcana-YYYYMMDD.log`. Level: CLI `--log-level`, GUI Settings → LogLevel.
+- Rule: any new class with behavior gets an `_log`/`Log` field; when editing code add logs for new branches; no silent empty catches — always log the exception.
+- CLI Program.cs logs invocation, duration, exit code; App.axaml.cs logs startup (console bridge + log level).
 
 Git
 - github.com/marcelofrau/arcana (private)

@@ -7,11 +7,14 @@ using Arcana.Core.Compression;
 using Arcana.Core.Filesystem;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Serilog;
 
 namespace Arcana.App.ViewModels;
 
 public partial class ArchiveViewModel : ObservableObject
 {
+    private static readonly ILogger Log = Serilog.Log.ForContext<ArchiveViewModel>();
+
     private readonly Stack<string> _history = new();
 
     public event EventHandler<FileEntryItem?>? SelectionChanged;
@@ -75,6 +78,8 @@ public partial class ArchiveViewModel : ObservableObject
 
     public void LoadArchive(Archive archive, string displayName)
     {
+        Log.Information("Loading archive {Name} ({Format}, {Count} entries)",
+            displayName, archive.Format, archive.Entries.Count);
         _archive?.Dispose();
         _archive = archive;
         archive.SyncNodeMetadata();
@@ -91,6 +96,7 @@ public partial class ArchiveViewModel : ObservableObject
 
     public void Close()
     {
+        Log.Debug("Closing archive");
         _archive?.Dispose();
         _archive = null;
         Root = null;
@@ -171,6 +177,7 @@ public partial class ArchiveViewModel : ObservableObject
             node.Parent?.Children.Remove(node);
             node.Parent = null;
         }
+        Log.Information("Deleted {Count} item(s) from archive tree", nodes.Count);
         SelectedItems = new List<FileEntryItem>();
         RefreshCurrent();
         ContentsChanged?.Invoke(this, EventArgs.Empty);
@@ -186,6 +193,7 @@ public partial class ArchiveViewModel : ObservableObject
         if (CurrentNode != null)
             _history.Push(CurrentNode.FullPath);
 
+        Log.Debug("Navigating to {Path}", node.FullPath);
         CurrentNode = node;
         TreeNodes.Clear();
         TreeNodes.Add(Root);

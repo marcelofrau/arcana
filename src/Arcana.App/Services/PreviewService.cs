@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Text;
 using Avalonia.Media.Imaging;
+using Serilog;
 
 namespace Arcana.App.Services;
 
@@ -17,6 +18,8 @@ public sealed record PreviewResult(PreviewKind Kind, string Text, Bitmap? Image,
 
 public class PreviewService
 {
+    private static readonly ILogger Log = Serilog.Log.ForContext<PreviewService>();
+
     private const int MaxTextBytes = 262144;
     private const int MaxHexBytes = 65536;
 
@@ -37,7 +40,9 @@ public class PreviewService
 
     public PreviewResult LoadPreview(Stream stream, string fileName, long size)
     {
-        switch (DetectKind(fileName))
+        var kind = DetectKind(fileName);
+        Log.Debug("Loading preview for {File} ({Size} bytes, kind {Kind})", fileName, size, kind);
+        switch (kind)
         {
             case PreviewKind.Text:
                 return LoadText(stream, size);
@@ -100,8 +105,9 @@ public class PreviewService
             var info = $"{ByteFormat.Format(size)} · {bitmap.PixelSize.Width}×{bitmap.PixelSize.Height}";
             return new PreviewResult(PreviewKind.Image, "", bitmap, info);
         }
-        catch
+        catch (Exception ex)
         {
+            Log.Warning(ex, "Image preview decode failed");
             return new PreviewResult(PreviewKind.Hex, "(image could not be decoded)", null, ByteFormat.Format(size));
         }
     }

@@ -6,6 +6,7 @@ using Avalonia;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
+using Serilog;
 
 namespace Arcana.App.Icons;
 
@@ -15,6 +16,8 @@ namespace Arcana.App.Icons;
 /// </summary>
 public static class ThemeBitmapLoader
 {
+    private static readonly ILogger Log = Serilog.Log.ForContext(typeof(ThemeBitmapLoader));
+
     private static readonly Vector Dpi = new(96, 96);
 
     public static Bitmap? LoadStrip(Stream stream)
@@ -26,8 +29,9 @@ public static class ThemeBitmapLoader
         {
             return new Bitmap(stream);
         }
-        catch
+        catch (Exception ex)
         {
+            Log.Debug(ex, "Could not decode toolbar strip bitmap");
             return null;
         }
     }
@@ -44,7 +48,10 @@ public static class ThemeBitmapLoader
         int width = strip.PixelSize.Width;
         int height = strip.PixelSize.Height;
         if (width % count != 0)
+        {
+            Log.Debug("Strip width {Width} not divisible by {Count}; cannot split", width, count);
             return null;
+        }
 
         int iconWidth = width / count;
         var stripBytes = ReadBgra(strip, width, height);
@@ -72,8 +79,9 @@ public static class ThemeBitmapLoader
                 return bytes;
             }
         }
-        catch
+        catch (Exception ex)
         {
+            Log.Debug(ex, "Could not read strip pixels");
             return null;
         }
     }

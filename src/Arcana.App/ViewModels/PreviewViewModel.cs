@@ -5,11 +5,14 @@ using Arcana.App.Icons;
 using Arcana.App.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Serilog;
 
 namespace Arcana.App.ViewModels;
 
 public partial class PreviewViewModel : ObservableObject
 {
+    private static readonly ILogger Log = Serilog.Log.ForContext<PreviewViewModel>();
+
     private readonly PreviewService _preview;
     private FileEntryItem? _item;
 
@@ -59,6 +62,7 @@ public partial class PreviewViewModel : ObservableObject
         FileName = item.Name;
         FileInfo = ByteFormat.Format(item.Node.OriginalSize);
         Kind = _preview.DetectKind(item.Name);
+        Log.Debug("Showing preview for {File} (kind {Kind})", item.Name, Kind);
 
         if (Kind == PreviewKind.Hex)
         {
@@ -83,14 +87,16 @@ public partial class PreviewViewModel : ObservableObject
                 {
                     Image = new Bitmap(_imageStream);
                 }
-                catch
+                catch (Exception ex)
                 {
+                    Log.Warning(ex, "Could not build preview bitmap for {File}", item.Name);
                     DisposeImage();
                 }
             }
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            Log.Warning(ex, "Could not load preview for {File}", item.Name);
             IsBinaryPlaceholder = true;
         }
         finally
@@ -114,9 +120,11 @@ public partial class PreviewViewModel : ObservableObject
             FileInfo = result.Info;
             TextContent = result.Text;
             IsBinaryPlaceholder = false;
+            Log.Debug("Loaded hex view for {File}", item.Name);
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            Log.Warning(ex, "Could not read entry {File} for hex view", item.Name);
             TextContent = "(could not read entry)";
             IsBinaryPlaceholder = false;
         }

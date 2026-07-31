@@ -1,5 +1,6 @@
 ﻿using Avalonia;
 using System;
+using Serilog;
 using Arcana.Core.Logging;
 
 namespace Arcana.App;
@@ -12,6 +13,7 @@ class Program
     [STAThread]
     public static void Main(string[] args)
     {
+        ConsoleAttach.AttachParentConsole();
         LogConfig.Init();
         BuildAvaloniaApp()
             .StartWithClassicDesktopLifetime(args);

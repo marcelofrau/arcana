@@ -30,7 +30,18 @@ public class Program
         rootCommand.Add(Commands.ConvertCommand.Create());
         rootCommand.Add(Commands.BenchmarkCommand.Create());
 
-        var result = await rootCommand.Parse(args).InvokeAsync();
+        var parseResult = rootCommand.Parse(args);
+
+        var logLevel = parseResult.GetValue(logLevelOpt);
+        if (logLevel != null)
+            LogConfig.SetLevel(logLevel);
+        Log.Information("Arcana CLI invoked with {ArgCount} argument(s), log level {Level}",
+            args.Length, logLevel ?? "default");
+
+        var start = DateTime.UtcNow;
+        var result = await parseResult.InvokeAsync();
+        Log.Information("Command finished in {Elapsed} ms with exit code {ExitCode}",
+            (DateTime.UtcNow - start).TotalMilliseconds, result);
 
         Log.CloseAndFlush();
         return result;
