@@ -1,10 +1,40 @@
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:icons="using:Arcana.App.Icons"
+             xmlns:conv="using:Arcana.App.Converters"
              x:Class="Arcana.App.App"
-             RequestedThemeVariant="Default">
-             <!-- "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options. -->
+             RequestedThemeVariant="Dark">
 
     <Application.Styles>
         <FluentTheme />
+        <StyleInclude Source="avares://Arcana.App/Themes/Controls.axaml"/>
     </Application.Styles>
+
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceInclude Source="avares://Arcana.App/Themes/Colors.axaml"/>
+            </ResourceDictionary.MergedDictionaries>
+
+            <!-- Fluent accent -->
+            <Color x:Key="SystemAccentColor">#8B5CF6</Color>
+
+            <icons:IconKeyToImageConverter x:Key="IconToImage"/>
+            <conv:EqualsConverter x:Key="Equals"/>
+
+            <!-- DataGrid dark overrides -->
+            <SolidColorBrush x:Key="DataGridBackgroundBrush" Color="#1E1E28"/>
+            <SolidColorBrush x:Key="DataGridHeaderBackgroundBrush" Color="#262631"/>
+            <SolidColorBrush x:Key="DataGridGridLinesBrush" Color="#262631"/>
+            <SolidColorBrush x:Key="DataGridRowHoverBackgroundBrush" Color="#2A2A3A"/>
+            <SolidColorBrush x:Key="DataGridRowSelectedBackgroundBrush" Color="#3A2E6E"/>
+            <SolidColorBrush x:Key="DataGridRowSelectedUnfocusedBackgroundBrush" Color="#2C2448"/>
+            <SolidColorBrush x:Key="DataGridCellSelectedBackgroundBrush" Color="#3A2E6E"/>
+            <SolidColorBrush x:Key="DataGridColumnHeaderForegroundBrush" Color="#9A9AB0"/>
+            <SolidColorBrush x:Key="DataGridColumnHeaderHoverBackgroundBrush" Color="#2A2A3A"/>
+            <SolidColorBrush x:Key="DataGridColumnHeaderPressedBackgroundBrush" Color="#33334A"/>
+            <SolidColorBrush x:Key="DataGridCellForegroundBrush" Color="#E4E4EE"/>
+        </ResourceDictionary>
+    </Application.Resources>
+
 </Application>

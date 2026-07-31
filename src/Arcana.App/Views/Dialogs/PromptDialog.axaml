@@ -1,0 +1,31 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Arcana.App.ViewModels"
+        x:Class="Arcana.App.Views.Dialogs.PromptDialog"
+        x:DataType="vm:PromptViewModel"
+        Width="440"
+        SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        ShowInTaskbar="False"
+        Background="{DynamicResource AppSurfaceRaisedBrush}"
+        Title="{Binding Title}">
+    <StackPanel Margin="20" Spacing="12">
+        <TextBlock Text="{Binding Title}"
+                   FontSize="16" FontWeight="SemiBold"
+                   Foreground="{DynamicResource AppTextPrimaryBrush}"/>
+        <TextBox Text="{Binding Value, Mode=TwoWay}"
+                 Background="{DynamicResource AppBackgroundBrush}"
+                 Foreground="{DynamicResource AppTextPrimaryBrush}"
+                 BorderBrush="{DynamicResource AppBorderBrush}"
+                 Padding="6,3"
+                 MinWidth="320"/>
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+            <Button Content="Cancel" MinWidth="90" Click="OnCancelClick"/>
+            <Button Content="OK" MinWidth="90"
+                    Click="OnOkClick"
+                    Background="{DynamicResource AppAccentBrush}"
+                    Foreground="White"/>
+        </StackPanel>
+    </StackPanel>
+</Window>

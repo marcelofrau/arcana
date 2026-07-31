@@ -6,7 +6,11 @@
     <VersionPrefix>$(VersionMajor).$(VersionMinor).$(VersionPatch)</VersionPrefix>
 
     <BuildCounterFile>$([MSBuild]::NormalizePath($(MSBuildThisFileDirectory)..\build\build-counter.txt))</BuildCounterFile>
-    <BuildCounter>$([System.IO.File]::ReadAllText($(BuildCounterFile)).Trim())</BuildCounter>
+    <BuildCounterRaw>$([System.IO.File]::ReadAllText($(BuildCounterFile)).Trim())</BuildCounterRaw>
+    <StoredPrefix>$([System.String]::Copy('$(BuildCounterRaw)').Split('|')[0])</StoredPrefix>
+    <StoredCounter>$([System.String]::Copy('$(BuildCounterRaw)').Split('|')[1])</StoredCounter>
+    <BuildCounter Condition="'$(StoredPrefix)' == '$(VersionPrefix)'">$(StoredCounter)</BuildCounter>
+    <BuildCounter Condition="'$(StoredPrefix)' != '$(VersionPrefix)'">0</BuildCounter>
 
     <AssemblyVersion>$(VersionPrefix).$(BuildCounter)</AssemblyVersion>
     <FileVersion>$(VersionPrefix).$(BuildCounter)</FileVersion>

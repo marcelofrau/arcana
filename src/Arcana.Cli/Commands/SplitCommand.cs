@@ -18,7 +18,7 @@ public static class SplitCommand
         var fileArg = new Argument<string>("file") { Description = "File to split" };
         var partSizeOpt = new Option<string>("--part-size", "-s") { Description = "Part size (e.g., 10M, 100M, 1G)" };
         var outputOpt = new Option<string>("--output", "-o") { Description = "Output directory" };
-        var hjsplitOpt = new Option<bool>("--hjsplit", "HJSplit-compatible naming (file.001, file.002...)");
+        var hjsplitOpt = new Option<bool>("--hjsplit") { Description = "HJSplit-compatible naming (file.001, file.002...)" };
 
         command.Add(fileArg);
         command.Add(partSizeOpt);

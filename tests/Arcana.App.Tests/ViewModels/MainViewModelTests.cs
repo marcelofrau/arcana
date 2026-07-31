@@ -5,7 +5,12 @@ namespace Arcana.App.Tests.ViewModels;
 
 public class MainViewModelTests
 {
-    private readonly MainViewModel _sut = new();
+    private readonly MainViewModel _sut = new(
+        new Services.ArchiveService(),
+        new Services.PreviewService(),
+        new Services.DialogService(),
+        new Icons.IconThemeService(new Icons.DefaultIconProvider()),
+        new Icons.DefaultIconProvider());
 
     [Fact]
     public void StatusText_ShouldDefaultToReady()
@@ -16,7 +21,7 @@ public class MainViewModelTests
     [Fact]
     public void ArchiveTree_ShouldBeEmptyOnCreation()
     {
-        _sut.ArchiveTree.Should().BeEmpty();
+        _sut.Archive.TreeNodes.Should().BeEmpty();
     }
 
     [Fact]

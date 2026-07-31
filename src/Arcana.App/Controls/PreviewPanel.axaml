@@ -1,0 +1,34 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Arcana.App.ViewModels"
+             x:Class="Arcana.App.Controls.PreviewPanel"
+             x:DataType="vm:MainViewModel">
+    <Border Classes="preview-pane"
+            IsVisible="{Binding Preview.IsVisible}">
+        <DockPanel>
+            <Border DockPanel.Dock="Top" Padding="10,6" Classes="breadcrumb">
+                <TextBlock Text="{Binding Preview.FileName}" Classes="preview-header"/>
+            </Border>
+
+            <TextBlock DockPanel.Dock="Bottom" Margin="10,0,10,6"
+                       Text="{Binding Preview.FileInfo}" Classes="muted" FontSize="11"/>
+
+            <ProgressBar DockPanel.Dock="Bottom" Height="3"
+                         IsVisible="{Binding Preview.IsLoading}" IsIndeterminate="True"/>
+
+            <ScrollViewer Margin="4">
+                <StackPanel>
+                    <TextBlock Text="{Binding Preview.TextContent}" Classes="hex"
+                               IsVisible="{Binding Preview.Kind, Converter={StaticResource Equals}, ConverterParameter=Text}"/>
+                    <TextBlock Text="{Binding Preview.TextContent}" Classes="hex"
+                               IsVisible="{Binding Preview.Kind, Converter={StaticResource Equals}, ConverterParameter=Hex}"/>
+                    <Border IsVisible="{Binding Preview.Kind, Converter={StaticResource Equals}, ConverterParameter=Image}"
+                            Background="White" CornerRadius="4" Padding="8"
+                            HorizontalAlignment="Stretch">
+                        <Image Source="{Binding Preview.Image}" Stretch="Uniform" MaxHeight="420"/>
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
+        </DockPanel>
+    </Border>
+</UserControl>

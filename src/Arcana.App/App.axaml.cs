@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Microsoft.Extensions.DependencyInjection;
+using Arcana.App.Icons;
 using Arcana.App.Services;
 using Arcana.App.ViewModels;
 using Arcana.App.Views;
@@ -20,6 +21,9 @@ public partial class App : Application
         var services = new ServiceCollection();
         services.AddSingleton<ArchiveService>();
         services.AddSingleton<PreviewService>();
+        services.AddSingleton<DialogService>();
+        services.AddSingleton<DefaultIconProvider>();
+        services.AddSingleton<IconThemeService>();
         services.AddTransient<MainViewModel>();
         services.AddTransient<ArchiveViewModel>();
         services.AddTransient<PreviewViewModel>();

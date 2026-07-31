@@ -4,7 +4,7 @@ Build env
 - Build: `dotnet build src/Arcana.slnx`
 - Test: `dotnet test src/Arcana.slnx` — 137 tests (134 Core + 3 App)
 - Run CLI: `dotnet run --project src/Arcana.Cli -- <args>`
-- Build scripts: `build/clean.ps1`, `build/increment-version.ps1`, `build/build-counter.txt`
+- Build scripts: `build/clean.ps1`, `build/increment-version.ps1`, `build/build-counter.txt` (`prefix|counter`, resets to 1 on prefix bump)
 
 Packages
 - SharpCompress 0.50.1, ZstdNet, Konscious.Argon2
@@ -45,7 +45,7 @@ Git
 Docs
 - ADRs in docs/DECISIONS.md (ADR-0011 superseded: standalone engines implemented)
 - Mermaid diagrams
-- Version: 0.1.0-build.N
+- Version: `{prefix}-build.{N}+{githash}`; CLI `--version` auto (System.CommandLine v2 RootCommand reads assembly info); git hash auto-appended by SDK via SourceRevisionId; About dialog reads runtime assembly version (not hardcoded)
 
 Next
 - Avalonia GUI: wire archive open, extract, preview

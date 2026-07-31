@@ -1,0 +1,20 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Arcana.App.ViewModels"
+             xmlns:core="using:Arcana.Core.Filesystem"
+             x:Class="Arcana.App.Controls.FolderTree"
+             x:DataType="vm:MainViewModel">
+    <TreeView x:Name="Tree"
+              ItemsSource="{Binding Archive.TreeNodes}"
+              SelectedItem="{Binding Archive.CurrentNode, Mode=TwoWay}"
+              Background="Transparent"
+              Foreground="{DynamicResource AppTextPrimaryBrush}">
+        <TreeView.ItemTemplate>
+            <TreeDataTemplate ItemsSource="{Binding Children}" x:DataType="core:ArchiveNode">
+                <StackPanel Orientation="Horizontal" Spacing="4">
+                    <TextBlock Text="{Binding Name}" VerticalAlignment="Center"/>
+                </StackPanel>
+            </TreeDataTemplate>
+        </TreeView.ItemTemplate>
+    </TreeView>
+</UserControl>

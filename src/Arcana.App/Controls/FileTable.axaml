@@ -1,0 +1,44 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Arcana.App.ViewModels"
+             x:Class="Arcana.App.Controls.FileTable"
+             x:DataType="vm:MainViewModel">
+    <DataGrid x:Name="Grid"
+              x:DataType="vm:FileEntryItem"
+              ItemsSource="{Binding Archive.Entries, x:DataType=vm:MainViewModel}"
+              SelectedItem="{Binding Archive.SelectedItem, Mode=TwoWay, x:DataType=vm:MainViewModel}"
+              AutoGenerateColumns="False"
+              CanUserSortColumns="True"
+              CanUserReorderColumns="True"
+              CanUserResizeColumns="True"
+              IsReadOnly="True"
+              SelectionMode="Extended"
+              GridLinesVisibility="Horizontal"
+              DoubleTapped="OnDoubleTapped"
+              KeyDown="OnKeyDown">
+        <DataGrid.Columns>
+            <DataGridTemplateColumn Header="Name" SortMemberPath="Name" Width="2*">
+                <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate x:DataType="vm:FileEntryItem">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <Image Source="{Binding Icon, Converter={StaticResource IconToImage}}"
+                                   Width="16" Height="16" Stretch="Uniform"
+                                   VerticalAlignment="Center"/>
+                            <TextBlock Text="{Binding Name}" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </DataTemplate>
+                </DataGridTemplateColumn.CellTemplate>
+            </DataGridTemplateColumn>
+            <DataGridTextColumn Header="Size" Binding="{Binding SizeText}"
+                                SortMemberPath="SizeValue" Width="90"/>
+            <DataGridTextColumn Header="Packed" Binding="{Binding PackedText}"
+                                SortMemberPath="PackedValue" Width="90"/>
+            <DataGridTextColumn Header="Ratio" Binding="{Binding RatioText}"
+                                SortMemberPath="RatioValue" Width="60"/>
+            <DataGridTextColumn Header="Type" Binding="{Binding TypeText}"
+                                SortMemberPath="TypeValue" Width="90"/>
+            <DataGridTextColumn Header="Modified" Binding="{Binding ModifiedText}"
+                                SortMemberPath="ModifiedText" Width="150"/>
+        </DataGrid.Columns>
+    </DataGrid>
+</UserControl>

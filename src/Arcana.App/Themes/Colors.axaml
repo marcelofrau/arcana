@@ -1,0 +1,35 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Palette dark (primary) -->
+    <Color x:Key="AppBackground">#16161E</Color>
+    <Color x:Key="AppSurface">#1E1E28</Color>
+    <Color x:Key="AppSurfaceRaised">#262631</Color>
+    <Color x:Key="AppBorder">#33334A</Color>
+    <Color x:Key="AppTextPrimary">#E4E4EE</Color>
+    <Color x:Key="AppTextSecondary">#9A9AB0</Color>
+    <Color x:Key="AppAccent">#8B5CF6</Color>
+    <Color x:Key="AppAccentHover">#9F7AFF</Color>
+    <Color x:Key="AppSuccess">#34D399</Color>
+    <Color x:Key="AppWarning">#FBBF24</Color>
+    <Color x:Key="AppError">#F87171</Color>
+    <Color x:Key="AppHover">#2A2A3A</Color>
+    <Color x:Key="AppSelection">#3A2E6E</Color>
+    <Color x:Key="AppSelectionUnfocused">#2C2448</Color>
+
+    <SolidColorBrush x:Key="AppBackgroundBrush" Color="{StaticResource AppBackground}"/>
+    <SolidColorBrush x:Key="AppSurfaceBrush" Color="{StaticResource AppSurface}"/>
+    <SolidColorBrush x:Key="AppSurfaceRaisedBrush" Color="{StaticResource AppSurfaceRaised}"/>
+    <SolidColorBrush x:Key="AppBorderBrush" Color="{StaticResource AppBorder}"/>
+    <SolidColorBrush x:Key="AppTextPrimaryBrush" Color="{StaticResource AppTextPrimary}"/>
+    <SolidColorBrush x:Key="AppTextSecondaryBrush" Color="{StaticResource AppTextSecondary}"/>
+    <SolidColorBrush x:Key="AppAccentBrush" Color="{StaticResource AppAccent}"/>
+    <SolidColorBrush x:Key="AppAccentHoverBrush" Color="{StaticResource AppAccentHover}"/>
+    <SolidColorBrush x:Key="AppSuccessBrush" Color="{StaticResource AppSuccess}"/>
+    <SolidColorBrush x:Key="AppWarningBrush" Color="{StaticResource AppWarning}"/>
+    <SolidColorBrush x:Key="AppErrorBrush" Color="{StaticResource AppError}"/>
+    <SolidColorBrush x:Key="AppHoverBrush" Color="{StaticResource AppHover}"/>
+    <SolidColorBrush x:Key="AppSelectionBrush" Color="{StaticResource AppSelection}"/>
+    <SolidColorBrush x:Key="AppSelectionUnfocusedBrush" Color="{StaticResource AppSelectionUnfocused}"/>
+
+</ResourceDictionary>

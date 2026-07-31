@@ -1,50 +1,100 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:Arcana.App.ViewModels"
+        xmlns:controls="using:Arcana.App.Controls"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d" d:DesignWidth="1200" d:DesignHeight="800"
         x:Class="Arcana.App.Views.MainWindow"
         x:DataType="vm:MainViewModel"
         Title="Arcana"
-        Icon="avares://Arcana.App/Assets/Icons/app.ico">
-    <Grid RowDefinitions="Auto,*,Auto">
+        Width="1200" Height="800"
+        MinWidth="900" MinHeight="600">
+    <Grid RowDefinitions="Auto,Auto,*,Auto">
+
         <Menu Grid.Row="0">
             <MenuItem Header="_File">
-                <MenuItem Header="_Open Archive" Command="{Binding OpenArchiveCommand}"/>
+                <MenuItem Header="_Open Archive" Command="{Binding OpenArchiveCommand}" InputGesture="Ctrl+O"/>
                 <MenuItem Header="_New Archive" Command="{Binding NewArchiveCommand}"/>
                 <Separator/>
-                <MenuItem Header="E_xit"/>
+                <MenuItem Header="E_xit" Command="{Binding ExitCommand}"/>
             </MenuItem>
             <MenuItem Header="_Tools">
-                <MenuItem Header="_Split File" Command="{Binding OpenSplitToolCommand}"/>
-                <MenuItem Header="_Join Files" Command="{Binding OpenJoinToolCommand}"/>
-                <MenuItem Header="_Hash Calculator" Command="{Binding OpenHashToolCommand}"/>
+                <MenuItem Header="_Themes" ItemsSource="{Binding ThemeMenuItems}">
+                    <MenuItem.ItemContainerTheme>
+                        <ControlTheme TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}">
+                            <Setter Property="Header" Value="{Binding DisplayName, x:DataType=vm:ThemeMenuItem}"/>
+                            <Setter Property="Command" Value="{Binding ApplyCommand, x:DataType=vm:ThemeMenuItem}"/>
+                        </ControlTheme>
+                    </MenuItem.ItemContainerTheme>
+                </MenuItem>
+                <MenuItem Header="_Install Theme…" Command="{Binding InstallThemeCommand}"/>
+                <MenuItem Header="Open _Themes Folder" Command="{Binding OpenThemesFolderCommand}"/>
+                <Separator/>
+                <MenuItem Header="_Find in Folder" Command="{Binding FindCommand}" InputGesture="F3"/>
             </MenuItem>
             <MenuItem Header="_Help">
-                <MenuItem Header="_About"/>
+                <MenuItem Header="_About" Command="{Binding AboutCommand}"/>
             </MenuItem>
         </Menu>
 
-        <Grid Grid.Row="1" ColumnDefinitions="250,4,*">
-            <TreeView Grid.Column="0" ItemsSource="{Binding ArchiveTree}">
-                <TreeView.ItemTemplate>
-                    <TreeDataTemplate ItemsSource="{Binding Children}">
-                        <StackPanel Orientation="Horizontal" Spacing="4">
-                            <TextBlock Text="{Binding Name}"/>
+        <Border Grid.Row="1" Classes="toolbar" Padding="6,3">
+            <ItemsControl ItemsSource="{Binding Toolbar}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <StackPanel Orientation="Horizontal" Spacing="2"/>
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:ToolBarButton">
+                        <Button Classes="tool" Command="{Binding Command}"
+                                ToolTip.Tip="{Binding ToolTip}" Padding="7,4">
+                            <Image Source="{Binding Image}" Stretch="Uniform"/>
+                        </Button>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </Border>
+
+        <Grid Grid.Row="2" ColumnDefinitions="240,4,*,4,320">
+            <Border Grid.Column="0" Classes="pane">
+                <controls:FolderTree/>
+            </Border>
+
+            <GridSplitter Grid.Column="1" ResizeDirection="Columns" Width="4"/>
+
+            <Grid Grid.Column="2" RowDefinitions="Auto,*">
+                <Border Grid.Row="0" Classes="breadcrumb" Padding="8,3">
+                    <DockPanel>
+                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal"
+                                    Spacing="6" VerticalAlignment="Center">
+                            <TextBlock Text="Filter:" Classes="breadcrumb"/>
+                            <TextBox Classes="filter" Width="180"
+                                     Text="{Binding Archive.Filter, Mode=TwoWay}"/>
                         </StackPanel>
-                    </TreeDataTemplate>
-                </TreeView.ItemTemplate>
-            </TreeView>
+                        <TextBlock Text="{Binding Archive.BreadcrumbText}" Classes="breadcrumb"
+                                   TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                    </DockPanel>
+                </Border>
+                <controls:FileTable Grid.Row="1"/>
+            </Grid>
 
-            <GridSplitter Grid.Column="1" ResizeDirection="Columns"
-                          Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}"/>
+            <GridSplitter Grid.Column="3" ResizeDirection="Columns" Width="4"/>
 
-            <ContentControl Grid.Column="2" Content="{Binding CurrentView}"/>
+            <controls:PreviewPanel Grid.Column="4"/>
         </Grid>
 
-        <Border Grid.Row="2" Padding="8,4" Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}">
-            <TextBlock Text="{Binding StatusText}"/>
+        <Border Grid.Row="3" Classes="statusbar" Padding="10,3">
+            <DockPanel>
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal"
+                            Spacing="8" VerticalAlignment="Center">
+                    <ProgressBar Width="120" Height="4" IsIndeterminate="True"
+                                 IsVisible="{Binding IsBusy}"/>
+                    <TextBlock Text="{Binding BusyText}" Classes="status"/>
+                </StackPanel>
+                <TextBlock Text="{Binding StatusText}" Classes="status"
+                           TextTrimming="CharacterEllipsis"/>
+            </DockPanel>
         </Border>
     </Grid>
 </Window>

@@ -1,0 +1,122 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Style Selector="Window">
+        <Setter Property="Background" Value="{DynamicResource AppBackgroundBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppTextPrimaryBrush}"/>
+    </Style>
+
+    <!-- Toolbar buttons -->
+    <Style Selector="Button.tool">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppTextPrimaryBrush}"/>
+        <Setter Property="Padding" Value="8,4"/>
+        <Setter Property="Margin" Value="2,0"/>
+        <Setter Property="CornerRadius" Value="6"/>
+        <Setter Property="HorizontalContentAlignment" Value="Center"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="Button.tool:pointerover">
+        <Setter Property="Background" Value="{DynamicResource AppHoverBrush}"/>
+    </Style>
+    <Style Selector="Button.tool:pressed">
+        <Setter Property="Background" Value="{DynamicResource AppSelectionBrush}"/>
+    </Style>
+    <Style Selector="Button.tool:disabled">
+        <Setter Property="Opacity" Value="0.35"/>
+    </Style>
+
+    <!-- Regions -->
+    <Style Selector="Border.toolbar">
+        <Setter Property="Background" Value="{DynamicResource AppSurfaceRaisedBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource AppBorderBrush}"/>
+        <Setter Property="BorderThickness" Value="0,0,0,1"/>
+    </Style>
+    <Style Selector="Border.statusbar">
+        <Setter Property="Background" Value="{DynamicResource AppSurfaceRaisedBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource AppBorderBrush}"/>
+        <Setter Property="BorderThickness" Value="0,1,0,0"/>
+    </Style>
+    <Style Selector="Border.pane">
+        <Setter Property="Background" Value="{DynamicResource AppSurfaceBrush}"/>
+    </Style>
+    <Style Selector="Border.breadcrumb">
+        <Setter Property="Background" Value="{DynamicResource AppSurfaceBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource AppBorderBrush}"/>
+        <Setter Property="BorderThickness" Value="0,0,0,1"/>
+    </Style>
+
+    <!-- Text -->
+    <Style Selector="TextBlock.status">
+        <Setter Property="Foreground" Value="{DynamicResource AppTextSecondaryBrush}"/>
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="TextBlock.breadcrumb">
+        <Setter Property="Foreground" Value="{DynamicResource AppTextSecondaryBrush}"/>
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="TextBlock.preview-header">
+        <Setter Property="Foreground" Value="{DynamicResource AppTextSecondaryBrush}"/>
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+    </Style>
+    <Style Selector="TextBlock.hex">
+        <Setter Property="FontFamily" Value="Cascadia Mono, Consolas"/>
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppTextPrimaryBrush}"/>
+    </Style>
+    <Style Selector="TextBlock.muted">
+        <Setter Property="Foreground" Value="{DynamicResource AppTextSecondaryBrush}"/>
+    </Style>
+
+    <!-- Filter box -->
+    <Style Selector="TextBox.filter">
+        <Setter Property="Background" Value="{DynamicResource AppBackgroundBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppTextPrimaryBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource AppBorderBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="6"/>
+        <Setter Property="Padding" Value="6,2"/>
+    </Style>
+    <Style Selector="TextBox.filter:focus">
+        <Setter Property="BorderBrush" Value="{DynamicResource AppAccentBrush}"/>
+    </Style>
+
+    <!-- Splitter -->
+    <Style Selector="GridSplitter">
+        <Setter Property="Background" Value="{DynamicResource AppBorderBrush}"/>
+    </Style>
+
+    <!-- Tree -->
+    <Style Selector="TreeView">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppTextPrimaryBrush}"/>
+    </Style>
+
+    <!-- Toolbar toolbar row text -->
+    <Style Selector="StackPanel.toolbar-label > TextBlock">
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppTextPrimaryBrush}"/>
+    </Style>
+
+    <!-- Preview content -->
+    <Style Selector="Border.preview-pane">
+        <Setter Property="Background" Value="{DynamicResource AppSurfaceBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource AppBorderBrush}"/>
+        <Setter Property="BorderThickness" Value="1,0,0,0"/>
+    </Style>
+
+    <!-- Progress bar accent -->
+    <Style Selector="ProgressBar">
+        <Setter Property="Foreground" Value="{DynamicResource AppAccentBrush}"/>
+    </Style>
+
+    <!-- Scrollbar darkening on menus/dialogs -->
+    <Style Selector="Menu">
+        <Setter Property="Background" Value="{DynamicResource AppSurfaceRaisedBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppTextPrimaryBrush}"/>
+    </Style>
+
+</Styles>
