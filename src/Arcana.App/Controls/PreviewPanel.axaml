@@ -16,19 +16,35 @@
             <ProgressBar DockPanel.Dock="Bottom" Height="3"
                          IsVisible="{Binding Preview.IsLoading}" IsIndeterminate="True"/>
 
-            <ScrollViewer Margin="4">
-                <StackPanel>
-                    <TextBlock Text="{Binding Preview.TextContent}" Classes="hex"
-                               IsVisible="{Binding Preview.Kind, Converter={StaticResource Equals}, ConverterParameter=Text}"/>
-                    <TextBlock Text="{Binding Preview.TextContent}" Classes="hex"
-                               IsVisible="{Binding Preview.Kind, Converter={StaticResource Equals}, ConverterParameter=Hex}"/>
-                    <Border IsVisible="{Binding Preview.Kind, Converter={StaticResource Equals}, ConverterParameter=Image}"
-                            Background="White" CornerRadius="4" Padding="8"
-                            HorizontalAlignment="Stretch">
-                        <Image Source="{Binding Preview.Image}" Stretch="Uniform" MaxHeight="420"/>
-                    </Border>
+            <Grid Margin="4">
+                <ScrollViewer IsVisible="{Binding Preview.IsBinaryPlaceholder, Converter={StaticResource Invert}}">
+                    <StackPanel>
+                        <TextBlock Text="{Binding Preview.TextContent}" Classes="hex"
+                                   IsVisible="{Binding Preview.Kind, Converter={StaticResource Equals}, ConverterParameter=Text}"/>
+                        <TextBlock Text="{Binding Preview.TextContent}" Classes="hex"
+                                   IsVisible="{Binding Preview.Kind, Converter={StaticResource Equals}, ConverterParameter=Hex}"/>
+                        <Border IsVisible="{Binding Preview.Kind, Converter={StaticResource Equals}, ConverterParameter=Image}"
+                                Background="White" CornerRadius="4" Padding="8"
+                                HorizontalAlignment="Stretch">
+                            <Image Source="{Binding Preview.Image}" Stretch="Uniform" MaxHeight="420"/>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+
+                <StackPanel IsVisible="{Binding Preview.IsBinaryPlaceholder}"
+                            HorizontalAlignment="Center" VerticalAlignment="Center"
+                            Spacing="14" MaxWidth="260">
+                    <Image Source="{Binding Preview.PlaceholderIcon, Converter={StaticResource IconToImage}}"
+                           Width="64" Height="64" Stretch="Uniform"
+                           HorizontalAlignment="Center"/>
+                    <TextBlock Text="{Binding Preview.FileName}" Classes="muted"
+                               TextAlignment="Center" TextWrapping="Wrap"
+                               HorizontalAlignment="Center"/>
+                    <Button Content="Binary Preview"
+                            Command="{Binding Preview.LoadBinaryCommand}"
+                            HorizontalAlignment="Center"/>
                 </StackPanel>
-            </ScrollViewer>
+            </Grid>
         </DockPanel>
     </Border>
 </UserControl>

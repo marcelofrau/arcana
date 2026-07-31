@@ -30,6 +30,22 @@ public partial class FolderTree : UserControl
     {
         if (e.PropertyName == nameof(ArchiveViewModel.Root))
             Dispatcher.UIThread.Post(ExpandAll);
+        else if (e.PropertyName == nameof(ArchiveViewModel.CurrentNode))
+            Dispatcher.UIThread.Post(SelectCurrentNode);
+    }
+
+    private void SelectCurrentNode()
+    {
+        if (DataContext is not MainViewModel { Archive: { } archive })
+            return;
+        if (archive.CurrentNode is not { } node)
+            return;
+
+        var container = Tree.ContainerFromItem(node) as TreeViewItem;
+        if (container == null)
+            return;
+        container.IsSelected = true;
+        container.BringIntoView();
     }
 
     private void ExpandAll()

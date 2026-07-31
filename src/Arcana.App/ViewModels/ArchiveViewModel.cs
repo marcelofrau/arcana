@@ -16,6 +16,7 @@ public partial class ArchiveViewModel : ObservableObject
 
     public event EventHandler<FileEntryItem?>? SelectionChanged;
     public event EventHandler? ContentsChanged;
+    public event EventHandler? SelectAllRequested;
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(NavigateUpCommand))]
@@ -36,6 +37,9 @@ public partial class ArchiveViewModel : ObservableObject
 
     [ObservableProperty]
     private FileEntryItem? _selectedItem;
+
+    [ObservableProperty]
+    private IList<FileEntryItem> _selectedItems = new List<FileEntryItem>();
 
     [ObservableProperty]
     private string _filter = "";
@@ -69,12 +73,14 @@ public partial class ArchiveViewModel : ObservableObject
         BuildBreadcrumb();
     }
 
-    public void LoadArchive(Archive archive)
+    public void LoadArchive(Archive archive, string displayName)
     {
         _archive?.Dispose();
         _archive = archive;
+        archive.SyncNodeMetadata();
 
         var vfsRoot = archive.Vfs.Root;
+        vfsRoot.Name = displayName;
         _history.Clear();
         Root = vfsRoot;
         TreeNodes.Clear();
@@ -94,6 +100,7 @@ public partial class ArchiveViewModel : ObservableObject
         TreeNodes.Clear();
         BreadcrumbText = "/";
         SelectedItem = null;
+        SelectedItems = new List<FileEntryItem>();
         ContentsChanged?.Invoke(this, EventArgs.Empty);
     }
 
@@ -128,14 +135,43 @@ public partial class ArchiveViewModel : ObservableObject
 
     private bool CanGoBack() => _history.Count > 0 && Root != null;
 
+    [RelayCommand]
+    private void SelectAll()
+    {
+        SelectAllRequested?.Invoke(this, EventArgs.Empty);
+    }
+
+    [RelayCommand]
+    private void ClearSelection()
+    {
+        SelectedItems = new List<FileEntryItem>();
+    }
+
+    public IReadOnlyList<ArchiveNode> SelectedNodes
+    {
+        get
+        {
+            if (SelectedItems is { Count: > 0 } list)
+                return list.Select(i => i.Node).ToList();
+            return SelectedItem != null
+                ? new[] { SelectedItem.Node }
+                : Array.Empty<ArchiveNode>();
+        }
+    }
+
     [RelayCommand(CanExecute = nameof(CanDelete))]
     private void Delete()
     {
-        if (SelectedItem is not { } item)
+        var nodes = SelectedNodes;
+        if (nodes.Count == 0)
             return;
 
-        item.Node.Parent?.Children.Remove(item.Node);
-        item.Node.Parent = null;
+        foreach (var node in nodes)
+        {
+            node.Parent?.Children.Remove(node);
+            node.Parent = null;
+        }
+        SelectedItems = new List<FileEntryItem>();
         RefreshCurrent();
         ContentsChanged?.Invoke(this, EventArgs.Empty);
     }
@@ -178,6 +214,7 @@ public partial class ArchiveViewModel : ObservableObject
     {
         if (CurrentNode != null)
             BuildEntries();
+        SelectedItems = new List<FileEntryItem>();
     }
 
     private void BuildEntries()
@@ -243,5 +280,5 @@ public partial class ArchiveViewModel : ObservableObject
     }
 
     public IEnumerable<ArchiveNode> CollectSelectedForDelete() =>
-        SelectedItem != null ? new[] { SelectedItem.Node } : Enumerable.Empty<ArchiveNode>();
+        SelectedNodes;
 }

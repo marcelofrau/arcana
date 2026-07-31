@@ -9,7 +9,7 @@ namespace Arcana.App.Icons;
 /// <summary>
 /// Built-in "Papirus" icon theme: PNGs rendered from the Papirus icon theme
 /// (https://github.com/PapirusDevelopmentTeam/papirus-icon-theme, GPL-3.0).
-/// Rasterized at 48px and displayed at 24px so icons stay sharp on HiDPI.
+/// Rasterized at 48px and displayed at 48px for crisp, high-DPI icons.
 /// </summary>
 public sealed class PapirusIconProvider : IIconProvider
 {
@@ -17,7 +17,7 @@ public sealed class PapirusIconProvider : IIconProvider
     public const string MaterialName = "Material";
 
     public string Name => BuiltInName;
-    public double ToolbarSize => 24;
+    public double ToolbarSize => 48;
 
     private static readonly IReadOnlyDictionary<IconKey, string> Slots =
         new Dictionary<IconKey, string>

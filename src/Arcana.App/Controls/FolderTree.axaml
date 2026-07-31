@@ -10,8 +10,11 @@
               Background="Transparent"
               Foreground="{DynamicResource AppTextPrimaryBrush}">
         <TreeView.ItemTemplate>
-            <TreeDataTemplate ItemsSource="{Binding Children}" x:DataType="core:ArchiveNode">
-                <StackPanel Orientation="Horizontal" Spacing="4">
+            <TreeDataTemplate ItemsSource="{Binding ChildFolders}" x:DataType="core:ArchiveNode">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <Image Source="{Binding Converter={StaticResource NodeIcon}}"
+                           Width="16" Height="16" Stretch="Uniform"
+                           VerticalAlignment="Center"/>
                     <TextBlock Text="{Binding Name}" VerticalAlignment="Center"/>
                 </StackPanel>
             </TreeDataTemplate>

@@ -1,0 +1,55 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Arcana.App.ViewModels"
+        x:Class="Arcana.App.Views.Dialogs.JoinFileDialog"
+        x:DataType="vm:JoinFileViewModel"
+        Width="520"
+        SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        ShowInTaskbar="False"
+        Background="{DynamicResource AppSurfaceRaisedBrush}"
+        Title="Join files">
+    <StackPanel Margin="20" Spacing="12">
+        <TextBlock Text="Join files"
+                   FontSize="16" FontWeight="SemiBold"
+                   Foreground="{DynamicResource AppTextPrimaryBrush}"/>
+        <TextBlock Text="Select the first part (e.g. file.001). Parts will be joined in order."
+                   TextWrapping="Wrap"
+                   Foreground="{DynamicResource AppTextSecondaryBrush}"/>
+        <Grid ColumnDefinitions="120,*,Auto"
+              RowDefinitions="Auto,Auto,Auto,Auto"
+              RowSpacing="10" ColumnSpacing="10">
+            <TextBlock Text="First part" VerticalAlignment="Center"
+                       Foreground="{DynamicResource AppTextSecondaryBrush}"/>
+            <TextBox Grid.Column="1" Text="{Binding FirstPart, Mode=TwoWay}"
+                     Background="{DynamicResource AppBackgroundBrush}"
+                     Foreground="{DynamicResource AppTextPrimaryBrush}"
+                     BorderBrush="{DynamicResource AppBorderBrush}"
+                     Padding="6,3"/>
+            <Button Grid.Column="2" Content="Browse…" MinWidth="80" Click="OnBrowseFirstPartClick"/>
+
+            <TextBlock Grid.Row="1" Text="Parts found" VerticalAlignment="Center"
+                       Foreground="{DynamicResource AppTextSecondaryBrush}"/>
+            <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding PartCount}"
+                       VerticalAlignment="Center"
+                       Foreground="{DynamicResource AppTextPrimaryBrush}"/>
+
+            <TextBlock Grid.Row="2" Text="Output file" VerticalAlignment="Center"
+                       Foreground="{DynamicResource AppTextSecondaryBrush}"/>
+            <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding OutputPath, Mode=TwoWay}"
+                     Background="{DynamicResource AppBackgroundBrush}"
+                     Foreground="{DynamicResource AppTextPrimaryBrush}"
+                     BorderBrush="{DynamicResource AppBorderBrush}"
+                     Padding="6,3"/>
+            <Button Grid.Row="2" Grid.Column="2" Content="Browse…" MinWidth="80" Click="OnBrowseOutputClick"/>
+        </Grid>
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+            <Button Content="Cancel" MinWidth="90" Click="OnCancelClick"/>
+            <Button Content="OK" MinWidth="90"
+                    Click="OnOkClick"
+                    Background="{DynamicResource AppAccentBrush}"
+                    Foreground="White"/>
+        </StackPanel>
+    </StackPanel>
+</Window>

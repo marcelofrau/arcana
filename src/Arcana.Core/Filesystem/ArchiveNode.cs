@@ -12,6 +12,9 @@ public class ArchiveNode
     public List<ArchiveNode> Children { get; set; } = new();
     public DateTime LastModified { get; set; }
 
+    public IEnumerable<ArchiveNode> ChildFolders =>
+        Children.Where(c => c.Type == NodeType.Directory);
+
     public Func<Stream>? ContentFactory { get; set; }
 
     public Stream OpenRead()

@@ -1,6 +1,8 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:Arcana.App.ViewModels"
+        xmlns:svc="using:Arcana.App.Services"
+        xmlns:icons="using:Arcana.App.Icons"
         xmlns:controls="using:Arcana.App.Controls"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -8,19 +10,206 @@
         x:Class="Arcana.App.Views.MainWindow"
         x:DataType="vm:MainViewModel"
         Title="Arcana"
+        Icon="/Assets/arcana.ico"
         Width="1200" Height="800"
         MinWidth="900" MinHeight="600">
     <Grid RowDefinitions="Auto,Auto,*,Auto">
 
-        <Menu Grid.Row="0">
+        <Menu Grid.Row="0" IsVisible="{Binding MenuBarVisible}">
             <MenuItem Header="_File">
-                <MenuItem Header="_Open Archive" Command="{Binding OpenArchiveCommand}" InputGesture="Ctrl+O"/>
-                <MenuItem Header="_New Archive" Command="{Binding NewArchiveCommand}"/>
+                <MenuItem Header="_Open Archive" Command="{Binding OpenArchiveCommand}" InputGesture="Ctrl+O">
+                    <MenuItem.Icon>
+                        <Image Tag="{x:Static icons:IconKey.Open}" Width="18" Height="18" Stretch="Uniform"
+                               Source="{Binding Tag, RelativeSource={RelativeSource Self}, Converter={StaticResource IconToImage}}"/>
+                    </MenuItem.Icon>
+                </MenuItem>
+                <MenuItem Header="Open Archive with…" Command="{Binding OpenArchiveWithCommand}" IsEnabled="False" ToolTip.Tip="Not supported yet"/>
+                <MenuItem Header="_Browse…" Command="{Binding BrowseCommand}" IsEnabled="False" ToolTip.Tip="Not supported yet"/>
+                <MenuItem Header="Change _Drive…" Command="{Binding ChangeDriveCommand}" IsEnabled="False" ToolTip.Tip="Not supported yet"/>
                 <Separator/>
-                <MenuItem Header="E_xit" Command="{Binding ExitCommand}"/>
+                <MenuItem Header="_Add to Archive…" Command="{Binding AddToArchiveCommand}" InputGesture="Alt+A">
+                    <MenuItem.Icon>
+                        <Image Tag="{x:Static icons:IconKey.Add}" Width="18" Height="18" Stretch="Uniform"
+                               Source="{Binding Tag, RelativeSource={RelativeSource Self}, Converter={StaticResource IconToImage}}"/>
+                    </MenuItem.Icon>
+                </MenuItem>
+                <MenuItem Header="Extract to Specified _Folder…" Command="{Binding ExtractCommand}" InputGesture="Alt+E">
+                    <MenuItem.Icon>
+                        <Image Tag="{x:Static icons:IconKey.Extract}" Width="18" Height="18" Stretch="Uniform"
+                               Source="{Binding Tag, RelativeSource={RelativeSource Self}, Converter={StaticResource IconToImage}}"/>
+                    </MenuItem.Icon>
+                </MenuItem>
+                <MenuItem Header="Extract to Current _Folder" Command="{Binding ExtractToCurrentCommand}" InputGesture="Ctrl+E">
+                    <MenuItem.Icon>
+                        <Image Tag="{x:Static icons:IconKey.Extract}" Width="18" Height="18" Stretch="Uniform"
+                               Source="{Binding Tag, RelativeSource={RelativeSource Self}, Converter={StaticResource IconToImage}}"/>
+                    </MenuItem.Icon>
+                </MenuItem>
+                <MenuItem Header="_Test Archived Files" Command="{Binding TestCommand}" InputGesture="Alt+T">
+                    <MenuItem.Icon>
+                        <Image Tag="{x:Static icons:IconKey.Test}" Width="18" Height="18" Stretch="Uniform"
+                               Source="{Binding Tag, RelativeSource={RelativeSource Self}, Converter={StaticResource IconToImage}}"/>
+                    </MenuItem.Icon>
+                </MenuItem>
+                <Separator/>
+                <MenuItem Header="Save _Copy As…" Command="{Binding SaveCopyAsCommand}" InputGesture="Ctrl+S">
+                    <MenuItem.Icon>
+                        <Image Tag="{x:Static icons:IconKey.Save}" Width="18" Height="18" Stretch="Uniform"
+                               Source="{Binding Tag, RelativeSource={RelativeSource Self}, Converter={StaticResource IconToImage}}"/>
+                    </MenuItem.Icon>
+                </MenuItem>
+                <MenuItem Header="_Split Archive…" Command="{Binding SplitArchiveCommand}">
+                    <MenuItem.Icon>
+                        <Image Tag="{x:Static icons:IconKey.Split}" Width="18" Height="18" Stretch="Uniform"
+                               Source="{Binding Tag, RelativeSource={RelativeSource Self}, Converter={StaticResource IconToImage}}"/>
+                    </MenuItem.Icon>
+                </MenuItem>
+                <Separator/>
+                <MenuItem Header="E_xit" Command="{Binding ExitCommand}">
+                    <MenuItem.Icon>
+                        <Image Tag="{x:Static icons:IconKey.Close}" Width="18" Height="18" Stretch="Uniform"
+                               Source="{Binding Tag, RelativeSource={RelativeSource Self}, Converter={StaticResource IconToImage}}"/>
+                    </MenuItem.Icon>
+                </MenuItem>
             </MenuItem>
+
+            <MenuItem Header="_Commands">
+                <MenuItem Header="_Add Files to Archive…" Command="{Binding AddToArchiveCommand}" InputGesture="Alt+A">
+                    <MenuItem.Icon>
+                        <Image Tag="{x:Static icons:IconKey.Add}" Width="18" Height="18" Stretch="Uniform"
+                               Source="{Binding Tag, RelativeSource={RelativeSource Self}, Converter={StaticResource IconToImage}}"/>
+                    </MenuItem.Icon>
+                </MenuItem>
+                <MenuItem Header="Extract to Specified _Folder…" Command="{Binding ExtractCommand}" InputGesture="Alt+E">
+                    <MenuItem.Icon>
+                        <Image Tag="{x:Static icons:IconKey.Extract}" Width="18" Height="18" Stretch="Uniform"
+                               Source="{Binding Tag, RelativeSource={RelativeSource Self}, Converter={StaticResource IconToImage}}"/>
+                    </MenuItem.Icon>
+                </MenuItem>
+                <MenuItem Header="Extract to Current _Folder" Command="{Binding ExtractToCurrentCommand}" InputGesture="Ctrl+E">
+                    <MenuItem.Icon>
+                        <Image Tag="{x:Static icons:IconKey.Extract}" Width="18" Height="18" Stretch="Uniform"
+                               Source="{Binding Tag, RelativeSource={RelativeSource Self}, Converter={StaticResource IconToImage}}"/>
+                    </MenuItem.Icon>
+                </MenuItem>
+                <MenuItem Header="_Test Archived Files" Command="{Binding TestCommand}" InputGesture="Alt+T">
+                    <MenuItem.Icon>
+                        <Image Tag="{x:Static icons:IconKey.Test}" Width="18" Height="18" Stretch="Uniform"
+                               Source="{Binding Tag, RelativeSource={RelativeSource Self}, Converter={StaticResource IconToImage}}"/>
+                    </MenuItem.Icon>
+                </MenuItem>
+                <Separator/>
+                <MenuItem Header="Protect Archive from _Damage…" Command="{Binding ProtectArchiveCommand}" IsEnabled="False" ToolTip.Tip="Not supported yet"/>
+                <MenuItem Header="_Convert Archive…" Command="{Binding ConvertArchiveCommand}" InputGesture="Alt+C">
+                    <MenuItem.Icon>
+                        <Image Tag="{x:Static icons:IconKey.Convert}" Width="18" Height="18" Stretch="Uniform"
+                               Source="{Binding Tag, RelativeSource={RelativeSource Self}, Converter={StaticResource IconToImage}}"/>
+                    </MenuItem.Icon>
+                </MenuItem>
+                <MenuItem Header="_Lock Archive" Command="{Binding LockArchiveCommand}" IsEnabled="False" ToolTip.Tip="Not supported yet"/>
+                <MenuItem Header="_Split Archive…" Command="{Binding SplitArchiveCommand}">
+                    <MenuItem.Icon>
+                        <Image Tag="{x:Static icons:IconKey.Split}" Width="18" Height="18" Stretch="Uniform"
+                               Source="{Binding Tag, RelativeSource={RelativeSource Self}, Converter={StaticResource IconToImage}}"/>
+                    </MenuItem.Icon>
+                </MenuItem>
+                <Separator/>
+                <MenuItem Header="_Delete Files from Archive" Command="{Binding Archive.DeleteCommand, x:DataType=vm:MainViewModel}" InputGesture="Delete">
+                    <MenuItem.Icon>
+                        <Image Tag="{x:Static icons:IconKey.Delete}" Width="18" Height="18" Stretch="Uniform"
+                               Source="{Binding Tag, RelativeSource={RelativeSource Self}, Converter={StaticResource IconToImage}}"/>
+                    </MenuItem.Icon>
+                </MenuItem>
+                <MenuItem Header="_Rename in Archive" Command="{Binding RenameCommand}" InputGesture="F2">
+                    <MenuItem.Icon>
+                        <Image Tag="{x:Static icons:IconKey.Rename}" Width="18" Height="18" Stretch="Uniform"
+                               Source="{Binding Tag, RelativeSource={RelativeSource Self}, Converter={StaticResource IconToImage}}"/>
+                    </MenuItem.Icon>
+                </MenuItem>
+                <MenuItem Header="Show _Information…" Command="{Binding InfoCommand}" InputGesture="Alt+I">
+                    <MenuItem.Icon>
+                        <Image Tag="{x:Static icons:IconKey.Info}" Width="18" Height="18" Stretch="Uniform"
+                               Source="{Binding Tag, RelativeSource={RelativeSource Self}, Converter={StaticResource IconToImage}}"/>
+                    </MenuItem.Icon>
+                </MenuItem>
+                <MenuItem Header="_Repair Archive…" Command="{Binding RepairArchiveCommand}" IsEnabled="False" ToolTip.Tip="Not supported yet"/>
+                <MenuItem Header="Set _Password…" Command="{Binding SetPasswordCommand}" InputGesture="Ctrl+P">
+                    <MenuItem.Icon>
+                        <Image Tag="{x:Static icons:IconKey.Password}" Width="18" Height="18" Stretch="Uniform"
+                               Source="{Binding Tag, RelativeSource={RelativeSource Self}, Converter={StaticResource IconToImage}}"/>
+                    </MenuItem.Icon>
+                </MenuItem>
+                <MenuItem Header="_Find Files…" Command="{Binding FindCommand}" InputGesture="F3">
+                    <MenuItem.Icon>
+                        <Image Tag="{x:Static icons:IconKey.Find}" Width="18" Height="18" Stretch="Uniform"
+                               Source="{Binding Tag, RelativeSource={RelativeSource Self}, Converter={StaticResource IconToImage}}"/>
+                    </MenuItem.Icon>
+                </MenuItem>
+                <MenuItem Header="_Select All" Command="{Binding SelectAllCommand}" InputGesture="Ctrl+A">
+                    <MenuItem.Icon>
+                        <Image Tag="{x:Static icons:IconKey.SelectAll}" Width="18" Height="18" Stretch="Uniform"
+                               Source="{Binding Tag, RelativeSource={RelativeSource Self}, Converter={StaticResource IconToImage}}"/>
+                    </MenuItem.Icon>
+                </MenuItem>
+                <MenuItem Header="_Wizard…" Command="{Binding WizardCommand}" IsEnabled="False" ToolTip.Tip="Not supported yet"/>
+            </MenuItem>
+
             <MenuItem Header="_Tools">
-                <MenuItem Header="_Themes" ItemsSource="{Binding ThemeMenuItems}">
+                <MenuItem Header="_Convert Archives…" Command="{Binding ConvertArchiveCommand}" InputGesture="Alt+C">
+                    <MenuItem.Icon>
+                        <Image Tag="{x:Static icons:IconKey.Convert}" Width="18" Height="18" Stretch="Uniform"
+                               Source="{Binding Tag, RelativeSource={RelativeSource Self}, Converter={StaticResource IconToImage}}"/>
+                    </MenuItem.Icon>
+                </MenuItem>
+                <MenuItem Header="_Backup Wizard…" Command="{Binding BackupWizardCommand}" IsEnabled="False" ToolTip.Tip="Not supported yet"/>
+                <MenuItem Header="_Repair Archives…" Command="{Binding RepairArchiveCommand}" IsEnabled="False" ToolTip.Tip="Not supported yet"/>
+                <Separator/>
+                <MenuItem Header="Split _Files…" Command="{Binding SplitFileCommand}">
+                    <MenuItem.Icon>
+                        <Image Tag="{x:Static icons:IconKey.Split}" Width="18" Height="18" Stretch="Uniform"
+                               Source="{Binding Tag, RelativeSource={RelativeSource Self}, Converter={StaticResource IconToImage}}"/>
+                    </MenuItem.Icon>
+                </MenuItem>
+                <MenuItem Header="J_oin Files…" Command="{Binding JoinFileCommand}">
+                    <MenuItem.Icon>
+                        <Image Tag="{x:Static icons:IconKey.Join}" Width="18" Height="18" Stretch="Uniform"
+                               Source="{Binding Tag, RelativeSource={RelativeSource Self}, Converter={StaticResource IconToImage}}"/>
+                    </MenuItem.Icon>
+                </MenuItem>
+                <MenuItem Header="Calculate _Hash…" Command="{Binding HashFileCommand}">
+                    <MenuItem.Icon>
+                        <Image Tag="{x:Static icons:IconKey.Hash}" Width="18" Height="18" Stretch="Uniform"
+                               Source="{Binding Tag, RelativeSource={RelativeSource Self}, Converter={StaticResource IconToImage}}"/>
+                    </MenuItem.Icon>
+                </MenuItem>
+                <Separator/>
+                <MenuItem Header="_Optimize Images…" Command="{Binding OptimizeImagesCommand}" IsEnabled="False" ToolTip.Tip="Coming soon"/>
+                <MenuItem Header="_Duplicate Files Finder…" Command="{Binding DuplicateFinderCommand}" IsEnabled="False" ToolTip.Tip="Coming soon"/>
+                <MenuItem Header="_Secure Erase…" Command="{Binding SecureEraseCommand}" IsEnabled="False" ToolTip.Tip="Coming soon"/>
+                <Separator/>
+                <MenuItem Header="Show _Information about Archive…" Command="{Binding InfoCommand}" InputGesture="Alt+I">
+                    <MenuItem.Icon>
+                        <Image Tag="{x:Static icons:IconKey.Info}" Width="18" Height="18" Stretch="Uniform"
+                               Source="{Binding Tag, RelativeSource={RelativeSource Self}, Converter={StaticResource IconToImage}}"/>
+                    </MenuItem.Icon>
+                </MenuItem>
+                <MenuItem Header="Set _Password…" Command="{Binding SetPasswordCommand}" InputGesture="Ctrl+P">
+                    <MenuItem.Icon>
+                        <Image Tag="{x:Static icons:IconKey.Password}" Width="18" Height="18" Stretch="Uniform"
+                               Source="{Binding Tag, RelativeSource={RelativeSource Self}, Converter={StaticResource IconToImage}}"/>
+                    </MenuItem.Icon>
+                </MenuItem>
+                <MenuItem Header="Protect Archive from _Damage…" Command="{Binding ProtectArchiveCommand}" IsEnabled="False" ToolTip.Tip="Not supported yet"/>
+                <MenuItem Header="_Lock Archive" Command="{Binding LockArchiveCommand}" IsEnabled="False" ToolTip.Tip="Not supported yet"/>
+                <MenuItem Header="_Compare Contents of Archives…" Command="{Binding CompareArchivesCommand}">
+                    <MenuItem.Icon>
+                        <Image Tag="{x:Static icons:IconKey.Compare}" Width="18" Height="18" Stretch="Uniform"
+                               Source="{Binding Tag, RelativeSource={RelativeSource Self}, Converter={StaticResource IconToImage}}"/>
+                    </MenuItem.Icon>
+                </MenuItem>
+                <Separator/>
+                <MenuItem Header="_Install Theme…" Command="{Binding InstallThemeCommand}"/>
+                <MenuItem Header="Select an Icon _Theme…" ItemsSource="{Binding ThemeMenuItems}">
                     <MenuItem.ItemContainerTheme>
                         <ControlTheme TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}">
                             <Setter Property="Header" Value="{Binding DisplayName, x:DataType=vm:ThemeMenuItem}"/>
@@ -28,17 +217,68 @@
                         </ControlTheme>
                     </MenuItem.ItemContainerTheme>
                 </MenuItem>
-                <MenuItem Header="_Install Theme…" Command="{Binding InstallThemeCommand}"/>
-                <MenuItem Header="Open _Themes Folder" Command="{Binding OpenThemesFolderCommand}"/>
                 <Separator/>
-                <MenuItem Header="_Find in Folder" Command="{Binding FindCommand}" InputGesture="F3"/>
+                <MenuItem Header="_Organize Defaults…" Command="{Binding OrganizeDefaultsCommand}" IsEnabled="False" ToolTip.Tip="Not supported yet"/>
+                <MenuItem Header="S_ettings…" Command="{Binding OpenSettingsCommand}">
+                    <MenuItem.Icon>
+                        <Image Tag="{x:Static icons:IconKey.Settings}" Width="18" Height="18" Stretch="Uniform"
+                               Source="{Binding Tag, RelativeSource={RelativeSource Self}, Converter={StaticResource IconToImage}}"/>
+                    </MenuItem.Icon>
+                </MenuItem>
             </MenuItem>
+
+            <MenuItem Header="_Favorites">
+                <MenuItem Header="_Add to Favorites…" Command="{Binding AddFavoriteCommand}">
+                    <MenuItem.Icon>
+                        <Image Tag="{x:Static icons:IconKey.Favorite}" Width="18" Height="18" Stretch="Uniform"
+                               Source="{Binding Tag, RelativeSource={RelativeSource Self}, Converter={StaticResource IconToImage}}"/>
+                    </MenuItem.Icon>
+                </MenuItem>
+                <MenuItem Header="_Organize Favorites…" Command="{Binding OrganizeFavoritesCommand}"/>
+                <Separator/>
+                <MenuItem Header="{Binding Favorites.Count, StringFormat='Favorites ({0})'}"
+                          ItemsSource="{Binding Favorites}">
+                    <MenuItem.ItemContainerTheme>
+                        <ControlTheme TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}">
+                            <Setter Property="Header" Value="{Binding Name, x:DataType=svc:FavoriteItem}"/>
+                            <Setter Property="Command" Value="{Binding OpenCommand, x:DataType=svc:FavoriteItem}"/>
+                        </ControlTheme>
+                    </MenuItem.ItemContainerTheme>
+                </MenuItem>
+            </MenuItem>
+
+            <MenuItem Header="_Options">
+                <MenuItem Header="S_ettings…" Command="{Binding OpenSettingsCommand}">
+                    <MenuItem.Icon>
+                        <Image Tag="{x:Static icons:IconKey.Settings}" Width="18" Height="18" Stretch="Uniform"
+                               Source="{Binding Tag, RelativeSource={RelativeSource Self}, Converter={StaticResource IconToImage}}"/>
+                    </MenuItem.Icon>
+                </MenuItem>
+                <Separator/>
+                <MenuItem Header="Show _Menu Bar" IsChecked="{Binding MenuBarVisible}" Command="{Binding ToggleMenuBarCommand}"/>
+                <MenuItem Header="Show _Toolbar" IsChecked="{Binding ToolbarVisible}" Command="{Binding ToggleToolbarCommand}"/>
+                <MenuItem Header="Show _File List" IsChecked="{Binding FileListVisible}" Command="{Binding ToggleFileListCommand}"/>
+                <MenuItem Header="Show _Comments" IsChecked="{Binding CommentsVisible}" Command="{Binding ToggleCommentsCommand}"/>
+            </MenuItem>
+
             <MenuItem Header="_Help">
-                <MenuItem Header="_About" Command="{Binding AboutCommand}"/>
+                <MenuItem Header="_Help Topics" Command="{Binding HelpTopicsCommand}" InputGesture="F1">
+                    <MenuItem.Icon>
+                        <Image Tag="{x:Static icons:IconKey.Help}" Width="18" Height="18" Stretch="Uniform"
+                               Source="{Binding Tag, RelativeSource={RelativeSource Self}, Converter={StaticResource IconToImage}}"/>
+                    </MenuItem.Icon>
+                </MenuItem>
+                <Separator/>
+                <MenuItem Header="_About" Command="{Binding AboutCommand}">
+                    <MenuItem.Icon>
+                        <Image Tag="{x:Static icons:IconKey.Info}" Width="18" Height="18" Stretch="Uniform"
+                               Source="{Binding Tag, RelativeSource={RelativeSource Self}, Converter={StaticResource IconToImage}}"/>
+                    </MenuItem.Icon>
+                </MenuItem>
             </MenuItem>
         </Menu>
 
-        <Border Grid.Row="1" Classes="toolbar" Padding="6,3">
+        <Border Grid.Row="1" Classes="toolbar" Padding="6,3" IsVisible="{Binding ToolbarVisible}">
             <ItemsControl ItemsSource="{Binding Toolbar}">
                 <ItemsControl.ItemsPanel>
                     <ItemsPanelTemplate>
@@ -48,8 +288,13 @@
                 <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="vm:ToolBarButton">
                         <Button Classes="tool" Command="{Binding Command}"
-                                ToolTip.Tip="{Binding ToolTip}" Padding="7,4">
-                            <Image Source="{Binding Image}" Stretch="Uniform"/>
+                                ToolTip.Tip="{Binding ToolTip}" Padding="6,3">
+                            <StackPanel Orientation="Vertical" Classes="toolbar-label" Spacing="2">
+                                <Image Source="{Binding Image}" Stretch="Uniform"
+                                       Width="{Binding Size}" Height="{Binding Size}"
+                                       HorizontalAlignment="Center"/>
+                                <TextBlock Text="{Binding Label}" HorizontalAlignment="Center"/>
+                            </StackPanel>
                         </Button>
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
@@ -57,11 +302,12 @@
         </Border>
 
         <Grid Grid.Row="2" ColumnDefinitions="240,4,*,4,320">
-            <Border Grid.Column="0" Classes="pane">
+            <Border Grid.Column="0" Classes="pane" IsVisible="{Binding FileListVisible}">
                 <controls:FolderTree/>
             </Border>
 
-            <GridSplitter Grid.Column="1" ResizeDirection="Columns" Width="4"/>
+            <GridSplitter Grid.Column="1" ResizeDirection="Columns" Width="4"
+                          IsVisible="{Binding FileListVisible}"/>
 
             <Grid Grid.Column="2" RowDefinitions="Auto,*">
                 <Border Grid.Row="0" Classes="breadcrumb" Padding="8,3">
@@ -79,9 +325,10 @@
                 <controls:FileTable Grid.Row="1"/>
             </Grid>
 
-            <GridSplitter Grid.Column="3" ResizeDirection="Columns" Width="4"/>
+            <GridSplitter Grid.Column="3" ResizeDirection="Columns" Width="4"
+                          IsVisible="{Binding CommentsVisible}"/>
 
-            <controls:PreviewPanel Grid.Column="4"/>
+            <controls:PreviewPanel Grid.Column="4" IsVisible="{Binding CommentsVisible}"/>
         </Grid>
 
         <Border Grid.Row="3" Classes="statusbar" Padding="10,3">

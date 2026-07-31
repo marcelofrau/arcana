@@ -8,9 +8,11 @@ public class MainViewModelTests
     private readonly MainViewModel _sut = new(
         new Services.ArchiveService(),
         new Services.PreviewService(),
-        new Services.DialogService(),
+        new Services.DialogService(new Services.SettingsService()),
         new Icons.IconThemeService(new Icons.DefaultIconProvider()),
-        new Icons.DefaultIconProvider());
+        new Icons.DefaultIconProvider(),
+        new Services.SettingsService(),
+        new Services.FavoritesService());
 
     [Fact]
     public void StatusText_ShouldDefaultToReady()

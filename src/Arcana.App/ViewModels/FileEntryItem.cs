@@ -52,28 +52,7 @@ public partial class FileEntryItem : ObservableObject
             : 0;
     public string TypeValue => TypeText;
 
-    public IconKey Icon
-    {
-        get
-        {
-            if (IsDirectory)
-                return IconKey.Folder;
-
-            var ext = Ext.ToLowerInvariant();
-            if (ext is ".zip" or ".rar" or ".7z" or ".tar" or ".gz" or ".bz2" or ".xz" or ".zst" or ".cab" or ".arj")
-                return IconKey.FileArchive;
-            if (ext is ".png" or ".jpg" or ".jpeg" or ".bmp" or ".gif" or ".webp" or ".ico")
-                return IconKey.FileImage;
-            if (ext is ".mp3" or ".wav" or ".flac" or ".mp4" or ".avi" or ".mkv" or ".mov" or ".ogg")
-                return IconKey.FileMedia;
-            if (ext is ".txt" or ".md" or ".xml" or ".json" or ".csv" or ".cs" or ".js" or ".ts"
-                or ".html" or ".css" or ".py" or ".sh" or ".sql" or ".yaml" or ".yml")
-                return IconKey.FileCode;
-            if (ext is ".doc" or ".docx" or ".pdf" or ".rtf" or ".odt")
-                return IconKey.FileDoc;
-            return IconKey.FileGeneric;
-        }
-    }
+    public IconKey Icon => IconResolver.ForNode(Node);
 
     public void Refresh()
     {

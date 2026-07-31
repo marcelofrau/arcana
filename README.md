@@ -1,71 +1,139 @@
-![Arcana](docs/assets/arcana-banner.png)
+<p align="center">
+  <img src="docs/social-preview.jpg" alt="Arcana — modern, cross-platform archiver"/>
+</p>
 
 # Arcana
 
-**Modern, cross-platform compression toolkit for the next generation.**
+<p align="center">
+  <b>The versatile, professional archiver.</b><br/>
+  One tool for every archive you'll ever touch — open, create, convert, encrypt, split, hash and preview.
+</p>
 
-Arcana is a fast, open-source file archiver built with C# and Avalonia UI. It supports modern compression formats, strong encryption, and a rich toolset — all wrapped in a responsive, native UI for Windows, macOS, and Linux.
+<p align="center">
+  <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-8B5CF6" alt="Platforms"/>
+  <img src="https://img.shields.io/badge/.NET-10-512BD4" alt=".NET 10"/>
+  <img src="https://img.shields.io/badge/engines-17-10B981" alt="17 archive engines"/>
+  <img src="https://img.shields.io/badge/formats-240%2B-0EA5E9" alt="240+ formats via fallback engine"/>
+  <img src="https://img.shields.io/badge/encryption-AES--256--GCM%20%2B%20Argon2id-F43F5E" alt="Encryption"/>
+  <img src="https://img.shields.io/badge/license-GPLv3-64748B" alt="GPLv3"/>
+</p>
+
+---
+
+**Arcana** is a fast, open-source file archiver built with C# and Avalonia. It combines the format coverage of a classic archiver with a modern, clean UI — and a full command-line toolkit underneath. Whether you're packing a release, opening a legacy archive from 1995, splitting a file for upload, or checking a checksum, Arcana is built to handle it.
+
+- 🖥️ **One app for Windows, macOS and Linux** — native Avalonia UI, dark theme included
+- 🗂️ **17 built-in engines + fallback support for 240+ formats** — from ZIP and 7z to ACE, ARJ, CAB, LZH, and everything in between
+- 🚀 **Modern compression** — Zstandard, Brotli, LZ4, LZMA, XZ, Snappy alongside the classics
+- 🔐 **Strong encryption** — AES-256-GCM authenticated encryption, Argon2id key derivation
+- 🧰 **Built-in tools** — split, join, hash, convert and benchmark, no extra downloads
+- 👀 **Instant preview** — text, images and hex dumps right inside the app
+- 🧩 **GUI + CLI** — a desktop app for day-to-day work, a scriptable CLI for automation
+
+---
+
+## ✨ Highlights
+
+**Explore like a pro.** Folders in the sidebar, files in the list, double-click to navigate, enter/back to go in and out. Classic explorer-style navigation, done right.
+
+**Preview without extracting.** Select a file — see its contents instantly. Text and images load automatically; binary files wait for your "Binary Preview" click instead of flooding the screen with hex.
+
+**Do everything in one place.**
+- Split big files into parts (with optional HJSplit-compatible naming) and join them back
+- Calculate and verify MD5, SHA-1, SHA-256 and SHA-512 hashes
+- Convert archives between formats
+- Benchmark engines to pick the fastest for your workload
+
+## 🗜️ Supported Formats
+
+| Format | Read | Write | Encrypt |
+|---|---|---|---|
+| ZIP | ✅ | ✅ | ✅ |
+| 7z | ✅ | ✅ | ✅ |
+| Zstandard | ✅ | ✅ | — |
+| Tar (+ gz / bz2 / xz / zst) | ✅ | ✅ | — |
+| GZip | ✅ | ✅ | — |
+| BZip2 | ✅ | ✅ | — |
+| XZ | ✅ | ✅ | — |
+| LZMA | ✅ | ✅ | — |
+| LZ4 | ✅ | ✅ | — |
+| Snappy | ✅ | ✅ | — |
+| Brotli | ✅ | ✅ | — |
+| RAR | ✅ | — | — |
+| ACE | ✅ | — | — |
+| ARJ | ✅ | — | — |
+| CAB | ✅ | — | — |
+| LZH / LHA | ✅ | — | — |
+
+Plus a **fallback engine** that extends read support to 240+ archive formats.
+
+## 🔐 Security
+
+Arcana encrypts with **AES-256-GCM** — authenticated encryption that detects any tampering — and derives keys with **Argon2id**, the memory-hard password hash that resists GPU cracking. Your data stays private and verifiable.
+
+## 🧰 Tools
+
+| Tool | What it does |
+|---|---|
+| **Split** | Split any file into parts; presets from 100 MB to 4 GB, or custom size. Optional HJSplit-compatible naming (`.001`, `.002`…) |
+| **Join** | Reassemble parts back into the original file; auto-discovers part sequences |
+| **Hash** | MD5, SHA-1, SHA-256, SHA-512 — calculate and verify |
+| **Convert** | Transcode archives between supported formats |
+| **Benchmark** | Measure engine speed and pick the right format for your data |
+
+## 🚀 Quick Start
 
 ```shell
-# Coming soon
-arcana compress source/*.txt --format zstd --output archive.arc
-arcana extract archive.7z --password-file secrets.key
-arcana list archive.zip
-```
-
-## Why Arcana?
-
-| Feature | Arcana | WinRAR | 7-Zip | PeaZip |
-|---|---|---|---|---|
-| Cross-platform | ✅ Native (Win/Mac/Linux) | ❌ Windows only | ❌ Windows + wine | ✅ Java |
-| Modern formats (zstd, brotli) | ✅ | ❌ | ❌ | ⚠️ Partial |
-| Multi-threaded compression | ✅ | ❌ | ⚠️ Limited | ⚠️ Limited |
-| Modern encryption (AES-GCM, ChaCha20) | ✅ | ❌ AES-CBC only | ❌ AES-CBC only | ❌ AES-CBC only |
-| Internal file preview & edit | ✅ | ❌ | ❌ | ❌ |
-| Built-in tools (split, hash, convert) | ✅ | ❌ | ❌ | ⚠️ Partial |
-| Open source (GPLv3) | ✅ | ❌ | ✅ LGPL | ✅ LGPL |
-| Modern UI (Avalonia) | ✅ | ❌ | ❌ | ❌ |
-
-## Features
-
-- **Compression**: ZIP, 7z, Zstandard, Brotli, LZ4, LZMA, XZ, BZip2, GZip, Tar
-- **Encryption**: AES-256-GCM, ChaCha20-Poly1305, Argon2id key derivation
-- **Archive editing**: Open, browse, edit, add, delete files inside archives
-- **Preview**: Text (syntax highlighted), images, hex dump, metadata
-- **Tools**: File split/join, hash calculator (SHA, BLAKE2), image converter, batch processor
-- **Performance**: Multi-threaded compression, SSD-aware I/O, async everywhere
-- **CLI + GUI**: Full command-line interface and rich desktop application
-
-## Supported Formats
-
-| Format | Read | Write | Encrypt | Multi-thread |
-|---|---|---|---|---|
-| ZIP | ✅ | ✅ | ✅ | ✅ |
-| 7z | ✅ | ✅ | ✅ | ✅ |
-| Zstandard | ✅ | ✅ | ✅ | ✅ |
-| Brotli | ✅ | ✅ | ❌ | ✅ |
-| LZ4 | ✅ | ✅ | ❌ | ✅ |
-| TAR | ✅ | ✅ | N/A | ✅ |
-| GZip | ✅ | ✅ | ❌ | ❌ |
-| BZip2 | ✅ | ✅ | ❌ | ❌ |
-| XZ | ✅ | ✅ | ❌ | ❌ |
-| RAR | ✅ (read) | ❌ | N/A | N/A |
-
-## Quick Start
-
-```shell
-# Prerequisites: .NET 8 SDK
-git clone https://github.com/yourusername/arcana
+# Prerequisites: .NET 10 SDK
+git clone https://github.com/marcelofrau/arcana
 cd arcana
 
-# Run the desktop app
+# Desktop app
 dotnet run --project src/Arcana.App
 
-# Run the CLI
+# CLI help
 dotnet run --project src/Arcana.Cli -- --help
 ```
 
-## Documentation
+### CLI examples
+
+```shell
+# Compress with Zstandard
+arcana compress release/ --format zstd --output release.arc
+
+# Extract a 7z (or any supported archive)
+arcana extract backup.7z
+
+# List archive contents
+arcana list archive.zip
+
+# Split a file into 100 MB parts (HJSplit-compatible naming)
+arcana split movie.iso -s 100M --hjsplit -o parts/
+
+# Join parts back
+arcana join "parts/movie.iso.001" -o .
+
+# Calculate a hash
+arcana hash setup.exe --algorithm sha256
+
+# Verify a hash
+arcana hash setup.exe --algorithm sha256 --verify "ab12cd34..."
+
+# Convert formats
+arcana convert backup.7z --format zip
+
+# Benchmark engines
+arcana benchmark
+```
+
+## 🛠️ Building
+
+```shell
+dotnet build src/Arcana.slnx
+dotnet test  src/Arcana.slnx   # 145 tests
+```
+
+## 📚 Documentation
 
 | Document | Description |
 |---|---|
@@ -73,21 +141,17 @@ dotnet run --project src/Arcana.Cli -- --help
 | [Specifications](docs/SPECS.md) | Functional and non-functional requirements |
 | [Roadmap](docs/ROADMAP.md) | Milestones and timeline |
 | [Formats](docs/compression/FORMATS.md) | Supported compression formats details |
-| [API Reference](docs/api/CORE_API.md) | Public API documentation |
 | [Contributing](docs/contributing/CODING_STANDARDS.md) | Coding guidelines and PR workflow |
 
-## Building
+## 🧭 Roadmap
 
-```shell
-# Debug build
-dotnet build src/Arcana.sln
+- GUI polish: drag-and-drop, in-app archive editing
+- **ChaCha20-Poly1305** encryption alongside AES-GCM
+- GitHub Actions CI
+- Image preview & conversion
 
-# Release build
-powershell -File build/build-release.ps1 -Version 0.1.0 -Arch win-x64
-```
+## 📄 License
 
-## License
+Arcana is free software, released under the **GNU General Public License v3**.
 
-Arcana is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
-
-See [LICENSE](LICENSE) for the full license text.
+See [LICENSE](LICENSE) for the full text.

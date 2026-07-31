@@ -4,9 +4,8 @@
              x:Class="Arcana.App.Controls.FileTable"
              x:DataType="vm:MainViewModel">
     <DataGrid x:Name="Grid"
-              x:DataType="vm:FileEntryItem"
-              ItemsSource="{Binding Archive.Entries, x:DataType=vm:MainViewModel}"
-              SelectedItem="{Binding Archive.SelectedItem, Mode=TwoWay, x:DataType=vm:MainViewModel}"
+              ItemsSource="{Binding Archive.Entries}"
+              SelectedItem="{Binding Archive.SelectedItem, Mode=TwoWay}"
               AutoGenerateColumns="False"
               CanUserSortColumns="True"
               CanUserReorderColumns="True"
@@ -14,18 +13,21 @@
               IsReadOnly="True"
               SelectionMode="Extended"
               GridLinesVisibility="Horizontal"
+              SelectionChanged="OnSelectionChanged"
               DoubleTapped="OnDoubleTapped"
               KeyDown="OnKeyDown">
         <DataGrid.Columns>
             <DataGridTemplateColumn Header="Name" SortMemberPath="Name" Width="2*">
                 <DataGridTemplateColumn.CellTemplate>
                     <DataTemplate x:DataType="vm:FileEntryItem">
-                        <StackPanel Orientation="Horizontal" Spacing="6">
-                            <Image Source="{Binding Icon, Converter={StaticResource IconToImage}}"
-                                   Width="16" Height="16" Stretch="Uniform"
-                                   VerticalAlignment="Center"/>
-                            <TextBlock Text="{Binding Name}" VerticalAlignment="Center"/>
-                        </StackPanel>
+                        <Border Padding="8,0">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <Image Source="{Binding Icon, Converter={StaticResource IconToImage}}"
+                                       Width="16" Height="16" Stretch="Uniform"
+                                       VerticalAlignment="Center"/>
+                                <TextBlock Text="{Binding Name}" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Border>
                     </DataTemplate>
                 </DataGridTemplateColumn.CellTemplate>
             </DataGridTemplateColumn>

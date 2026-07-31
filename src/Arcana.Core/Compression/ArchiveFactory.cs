@@ -98,7 +98,9 @@ public static class ArchiveFactory
         using var stream = File.OpenRead(path);
         var format = GetFormatFromPathOrHeader(path, stream);
         SetPassword(format, password);
-        return format.Open(path, stream, mode);
+        var archive = format.Open(path, stream, mode);
+        archive.SyncNodeMetadata();
+        return archive;
     }
 
     private static bool IsTarHeader(Stream stream)
@@ -125,7 +127,9 @@ public static class ArchiveFactory
             var stream = File.OpenRead(path);
             var format = GetFormatFromPathOrHeader(path, stream);
             SetPassword(format, password);
-            return await format.OpenAsync(path, stream, mode, ct);
+            var archive = await format.OpenAsync(path, stream, mode, ct);
+            archive.SyncNodeMetadata();
+            return archive;
         }
         catch (Exception ex)
         {

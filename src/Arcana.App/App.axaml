@@ -7,6 +7,7 @@
 
     <Application.Styles>
         <FluentTheme />
+        <StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml"/>
         <StyleInclude Source="avares://Arcana.App/Themes/Controls.axaml"/>
     </Application.Styles>
 
@@ -20,7 +21,9 @@
             <Color x:Key="SystemAccentColor">#8B5CF6</Color>
 
             <icons:IconKeyToImageConverter x:Key="IconToImage"/>
+            <icons:NodeIconConverter x:Key="NodeIcon"/>
             <conv:EqualsConverter x:Key="Equals"/>
+            <conv:InvertBoolConverter x:Key="Invert"/>
 
             <!-- DataGrid dark overrides -->
             <SolidColorBrush x:Key="DataGridBackgroundBrush" Color="#1E1E28"/>

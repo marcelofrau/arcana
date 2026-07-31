@@ -1,0 +1,54 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Arcana.App.ViewModels"
+        x:Class="Arcana.App.Views.Dialogs.SettingsDialog"
+        x:DataType="vm:SettingsViewModel"
+        Width="420"
+        SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        ShowInTaskbar="False"
+        Background="{DynamicResource AppSurfaceRaisedBrush}"
+        Title="Settings">
+    <StackPanel Margin="20" Spacing="14">
+        <TextBlock Text="Settings"
+                   FontSize="16" FontWeight="SemiBold"
+                   Foreground="{DynamicResource AppTextPrimaryBrush}"/>
+        <Grid ColumnDefinitions="160,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto"
+              RowSpacing="10" ColumnSpacing="10">
+            <TextBlock Text="Default format" VerticalAlignment="Center"
+                       Foreground="{DynamicResource AppTextSecondaryBrush}"/>
+            <ComboBox Grid.Column="1"
+                      ItemsSource="{Binding Formats}"
+                      SelectedItem="{Binding DefaultFormat, Mode=TwoWay}"/>
+            <TextBlock Grid.Row="1" Text="Compression level" VerticalAlignment="Center"
+                       Foreground="{DynamicResource AppTextSecondaryBrush}"/>
+            <ComboBox Grid.Row="1" Grid.Column="1"
+                      ItemsSource="{Binding Levels}"
+                      SelectedItem="{Binding DefaultCompressionLevel, Mode=TwoWay}"/>
+            <TextBlock Grid.Row="2" Text="Thread count" VerticalAlignment="Center"
+                       Foreground="{DynamicResource AppTextSecondaryBrush}"/>
+            <NumericUpDown Grid.Row="2" Grid.Column="1"
+                           Minimum="1" Maximum="64"
+                           Value="{Binding ThreadCount, Mode=TwoWay}"
+                           FormatString="0"/>
+            <TextBlock Grid.Row="3" Text="Parallel compression" VerticalAlignment="Center"
+                       Foreground="{DynamicResource AppTextSecondaryBrush}"/>
+            <CheckBox Grid.Row="3" Grid.Column="1"
+                      IsChecked="{Binding EnableParallel, Mode=TwoWay}"
+                      VerticalAlignment="Center"/>
+            <TextBlock Grid.Row="4" Text="Log level" VerticalAlignment="Center"
+                       Foreground="{DynamicResource AppTextSecondaryBrush}"/>
+            <ComboBox Grid.Row="4" Grid.Column="1"
+                      ItemsSource="{Binding LogLevels}"
+                      SelectedItem="{Binding LogLevel, Mode=TwoWay}"/>
+        </Grid>
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+            <Button Content="Cancel" MinWidth="90" Click="OnCancelClick"/>
+            <Button Content="OK" MinWidth="90"
+                    Click="OnOkClick"
+                    Background="{DynamicResource AppAccentBrush}"
+                    Foreground="White"/>
+        </StackPanel>
+    </StackPanel>
+</Window>

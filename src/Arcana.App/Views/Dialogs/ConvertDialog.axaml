@@ -1,0 +1,41 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Arcana.App.ViewModels"
+        x:Class="Arcana.App.Views.Dialogs.ConvertDialog"
+        x:DataType="vm:ConvertViewModel"
+        Width="420"
+        SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        ShowInTaskbar="False"
+        Background="{DynamicResource AppSurfaceRaisedBrush}"
+        Title="Convert archive">
+    <StackPanel Margin="20" Spacing="12">
+        <TextBlock Text="Convert archive"
+                   FontSize="16" FontWeight="SemiBold"
+                   Foreground="{DynamicResource AppTextPrimaryBrush}"/>
+        <TextBlock Text="{Binding SourceName}"
+                   TextWrapping="Wrap"
+                   Foreground="{DynamicResource AppTextSecondaryBrush}"/>
+        <Grid ColumnDefinitions="120,*" RowDefinitions="Auto,Auto"
+              RowSpacing="10" ColumnSpacing="10">
+            <TextBlock Text="Format" VerticalAlignment="Center"
+                       Foreground="{DynamicResource AppTextSecondaryBrush}"/>
+            <ComboBox Grid.Column="1"
+                      ItemsSource="{Binding Formats}"
+                      SelectedItem="{Binding Format, Mode=TwoWay}"/>
+            <TextBlock Grid.Row="1" Text="Compression level" VerticalAlignment="Center"
+                       Foreground="{DynamicResource AppTextSecondaryBrush}"/>
+            <ComboBox Grid.Row="1" Grid.Column="1"
+                      ItemsSource="{Binding Levels}"
+                      SelectedItem="{Binding Level, Mode=TwoWay}"/>
+        </Grid>
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+            <Button Content="Cancel" MinWidth="90" Click="OnCancelClick"/>
+            <Button Content="OK" MinWidth="90"
+                    Click="OnOkClick"
+                    Background="{DynamicResource AppAccentBrush}"
+                    Foreground="White"/>
+        </StackPanel>
+    </StackPanel>
+</Window>

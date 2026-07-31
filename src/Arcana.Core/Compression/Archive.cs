@@ -19,6 +19,19 @@ public class Archive : IDisposable
         => Entries.Where(e =>
             e.Name.Contains(pattern, StringComparison.OrdinalIgnoreCase));
 
+    public void SyncNodeMetadata()
+    {
+        foreach (var entry in Entries)
+        {
+            var node = Vfs.FindNode(entry.Path);
+            if (node == null)
+                continue;
+            node.OriginalSize = entry.Size;
+            node.CompressedSize = entry.CompressedSize;
+            node.LastModified = entry.LastModified;
+        }
+    }
+
     public void Dispose()
     {
         Vfs.Dispose();

@@ -1,14 +1,17 @@
 using System;
 using System.IO;
 using Avalonia.Media.Imaging;
+using Arcana.App.Icons;
 using Arcana.App.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 
 namespace Arcana.App.ViewModels;
 
 public partial class PreviewViewModel : ObservableObject
 {
     private readonly PreviewService _preview;
+    private FileEntryItem? _item;
 
     public PreviewViewModel(PreviewService preview)
     {
@@ -36,7 +39,13 @@ public partial class PreviewViewModel : ObservableObject
     [ObservableProperty]
     private Bitmap? _image;
 
+    [ObservableProperty]
+    private bool _isBinaryPlaceholder;
+
     private MemoryStream? _imageStream;
+
+    public IconKey PlaceholderIcon =>
+        _item is { } item ? IconResolver.ForNode(item.Node) : IconKey.FileGeneric;
 
     public void Show(FileEntryItem? item)
     {
@@ -45,11 +54,19 @@ public partial class PreviewViewModel : ObservableObject
         if (item == null || item.IsDirectory || item.Node.ContentFactory == null)
             return;
 
+        _item = item;
         IsVisible = true;
-        IsLoading = true;
         FileName = item.Name;
+        FileInfo = ByteFormat.Format(item.Node.OriginalSize);
         Kind = _preview.DetectKind(item.Name);
 
+        if (Kind == PreviewKind.Hex)
+        {
+            IsBinaryPlaceholder = true;
+            return;
+        }
+
+        IsLoading = true;
         try
         {
             using var content = item.Node.OpenRead();
@@ -74,9 +91,34 @@ public partial class PreviewViewModel : ObservableObject
         }
         catch (Exception)
         {
-            Kind = PreviewKind.Hex;
+            IsBinaryPlaceholder = true;
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    [RelayCommand]
+    private void LoadBinary()
+    {
+        if (_item is not { Node.ContentFactory: { } } item)
+            return;
+
+        IsLoading = true;
+        try
+        {
+            using var content = item.Node.OpenRead();
+            var result = _preview.LoadHex(content, item.Node.OriginalSize);
+            Kind = result.Kind;
+            FileInfo = result.Info;
+            TextContent = result.Text;
+            IsBinaryPlaceholder = false;
+        }
+        catch (Exception)
+        {
             TextContent = "(could not read entry)";
-            FileInfo = ByteFormat.Format(item.Node.OriginalSize);
+            IsBinaryPlaceholder = false;
         }
         finally
         {
@@ -87,12 +129,14 @@ public partial class PreviewViewModel : ObservableObject
     public void Clear()
     {
         DisposeImage();
+        _item = null;
         IsVisible = false;
         IsLoading = false;
         FileName = "";
         FileInfo = "";
         Kind = PreviewKind.None;
         TextContent = "";
+        IsBinaryPlaceholder = false;
     }
 
     private void DisposeImage()

@@ -1,0 +1,49 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Arcana.App.ViewModels"
+        x:Class="Arcana.App.Views.Dialogs.SplitFileDialog"
+        x:DataType="vm:SplitFileViewModel"
+        Width="520"
+        SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        ShowInTaskbar="False"
+        Background="{DynamicResource AppSurfaceRaisedBrush}"
+        Title="Split file">
+    <StackPanel Margin="20" Spacing="12">
+        <TextBlock Text="Split file"
+                   FontSize="16" FontWeight="SemiBold"
+                   Foreground="{DynamicResource AppTextPrimaryBrush}"/>
+        <TextBlock Text="{Binding SourcePath}"
+                   TextWrapping="Wrap"
+                   Foreground="{DynamicResource AppTextSecondaryBrush}"/>
+        <Grid ColumnDefinitions="120,*,Auto"
+              RowDefinitions="Auto,Auto,Auto,Auto"
+              RowSpacing="10" ColumnSpacing="10">
+            <TextBlock Text="Destination folder" VerticalAlignment="Center"
+                       Foreground="{DynamicResource AppTextSecondaryBrush}"/>
+            <TextBox Grid.Column="1" Text="{Binding DestinationDir, Mode=TwoWay}"
+                     Background="{DynamicResource AppBackgroundBrush}"
+                     Foreground="{DynamicResource AppTextPrimaryBrush}"
+                     BorderBrush="{DynamicResource AppBorderBrush}"
+                     Padding="6,3"/>
+            <Button Grid.Column="2" Content="Browse…" MinWidth="80" Click="OnBrowseDestClick"/>
+
+            <TextBlock Grid.Row="1" Text="Part size" VerticalAlignment="Center"
+                       Foreground="{DynamicResource AppTextSecondaryBrush}"/>
+            <ComboBox Grid.Row="1" Grid.Column="1"
+                      ItemsSource="{Binding PartSizesMb}"
+                      SelectedItem="{Binding PartSizeMb, Mode=TwoWay}"/>
+
+            <CheckBox Grid.Row="2" Grid.Column="1" Content="HJSplit mode (file.001, file.002…)"
+                      IsChecked="{Binding HjsplitMode, Mode=TwoWay}"/>
+        </Grid>
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+            <Button Content="Cancel" MinWidth="90" Click="OnCancelClick"/>
+            <Button Content="OK" MinWidth="90"
+                    Click="OnOkClick"
+                    Background="{DynamicResource AppAccentBrush}"
+                    Foreground="White"/>
+        </StackPanel>
+    </StackPanel>
+</Window>
