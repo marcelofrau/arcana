@@ -18,10 +18,11 @@ public class PaneBindingTests
         new Services.ArchiveService(),
         new Services.PreviewService(),
         new Services.DialogService(new Services.SettingsService()),
-        new Icons.IconThemeService(new Icons.DefaultIconProvider()),
+        new Icons.IconThemeService(new Icons.DefaultIconProvider(), new Services.SettingsService()),
         new Icons.DefaultIconProvider(),
         new Services.SettingsService(),
-        new Services.FavoritesService());
+        new Services.FavoritesService(),
+        new Arcana.App.Themes.ColorThemeService(new Services.SettingsService()));
 
     private static async Task<Archive> CreateZipArchiveAsync(params (string Path, string Content)[] files)
     {

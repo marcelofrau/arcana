@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
+using Serilog;
 
 namespace Arcana.App.Icons;
 
@@ -13,6 +14,8 @@ namespace Arcana.App.Icons;
 /// </summary>
 public sealed class PapirusIconProvider : IIconProvider
 {
+    private static readonly ILogger Log = Serilog.Log.ForContext<PapirusIconProvider>();
+
     public const string BuiltInName = "Papirus";
     public const string MaterialName = "Material";
 
@@ -54,13 +57,17 @@ public sealed class PapirusIconProvider : IIconProvider
     public IImage? GetIcon(IconKey key)
     {
         if (!Slots.TryGetValue(key, out var file))
+        {
+            Log.Verbose("Papirus has no slot for {Key}; falling back to Material", key);
             return _fallback.GetIcon(key);
+        }
 
         lock (_lock)
         {
             if (_cache.TryGetValue(key, out var cached))
                 return cached;
 
+            Log.Verbose("Loading Papirus icon {File} for {Key}", file, key);
             using var stream = AssetLoader.Open(new Uri($"avares://Arcana.App/Assets/Papirus/{file}.png"));
             var bitmap = new Bitmap(stream);
             _cache[key] = bitmap;
