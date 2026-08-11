@@ -9,9 +9,10 @@ namespace Arcana.App.Icons;
 
 /// <summary>
 /// Generic built-in icon theme backed by committed PNGs (rasterized at 48px via
-/// tools/IconTool, see build/update-*-icons.ps1). Slots it does not cover fall
-/// back to the Material vector set. Used for the Numix, Tango and La Capitaine
-/// themes.
+/// tools/IconTool, see build/update-*-icons.ps1; Arcana uses color icons from the
+/// icons8 personal set, see build/update-arcana-icons.ps1). Slots it does not
+/// cover fall back to the Material vector set. Used for the Numix, Tango,
+/// La Capitaine and Arcana themes.
 /// </summary>
 public sealed class PngIconThemeProvider : IIconProvider
 {
@@ -20,6 +21,7 @@ public sealed class PngIconThemeProvider : IIconProvider
     public const string NumixName = "Numix";
     public const string TangoName = "Tango";
     public const string LaCapitaineName = "La Capitaine";
+    public const string ArcanaName = "Arcana";
 
     public string Name { get; }
     public double ToolbarSize { get; }

@@ -35,6 +35,15 @@ public sealed class ColorTheme
     public required Color SelectionUnfocused { get; init; }
 
     /// <summary>
+    /// Optional 3-stop vertical gradient for the toolbar (top/mid/bottom).
+    /// When unset, ColorThemeService falls back to an accent-derived gradient.
+    /// Retro themes use this to reproduce their classic gray/white look.
+    /// </summary>
+    public Color? ToolbarTop { get; init; }
+    public Color? ToolbarMid { get; init; }
+    public Color? ToolbarBottom { get; init; }
+
+    /// <summary>
     /// Semantic tokens as (resource key, color) pairs. The keys match the ones in
     /// Themes/Colors.axaml; ColorThemeService writes both the raw Color and a
     /// matching "…Brush" SolidColorBrush for every token.

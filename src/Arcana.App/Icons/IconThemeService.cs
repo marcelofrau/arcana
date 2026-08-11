@@ -10,12 +10,12 @@ using Serilog;
 namespace Arcana.App.Icons;
 
 /// <summary>
-/// Manages icon themes. Built-in action themes are "Numix" (default), "Tango",
-/// "La Capitaine" and "Material"; the filesystem icons (folders and file
-/// mimetypes) always come from the "Papirus" set. "Papirus" is still accepted
-/// as a legacy whole-app theme value. WinRAR-style themes can be installed as
-/// .theme.rar and are extracted to %APPDATA%\Arcana\Themes; they replace the
-/// action icons only. The last selected theme is persisted.
+/// Manages icon themes. Built-in action themes are "Arcana" (default), "Numix",
+/// "Tango", "La Capitaine" and "Material"; the filesystem icons (folders and
+/// file mimetypes) always come from the "Papirus" set. "Papirus" is still
+/// accepted as a legacy whole-app theme value. WinRAR-style themes can be
+/// installed as .theme.rar and are extracted to %APPDATA%\Arcana\Themes; they
+/// replace the action icons only. The last selected theme is persisted.
 /// </summary>
 public sealed class IconThemeService
 {
@@ -44,8 +44,11 @@ public sealed class IconThemeService
             PngIconThemeProvider.TangoName, "Tango", TangoSlots, materialProvider);
         var laCapitaine = new PngIconThemeProvider(
             PngIconThemeProvider.LaCapitaineName, "LaCapitaine", LaCapitaineSlots, materialProvider);
+        var arcana = new PngIconThemeProvider(
+            PngIconThemeProvider.ArcanaName, "Arcana", ArcanaSlots, materialProvider);
         _actionProviders = new Dictionary<string, IIconProvider>(StringComparer.OrdinalIgnoreCase)
         {
+            [PngIconThemeProvider.ArcanaName] = arcana,
             [PngIconThemeProvider.NumixName] = numix,
             [PngIconThemeProvider.TangoName] = tango,
             [PngIconThemeProvider.LaCapitaineName] = laCapitaine,
@@ -56,7 +59,7 @@ public sealed class IconThemeService
         var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
         _themesDir = Path.Combine(appData, "Arcana", "Themes");
         _settingsPath = Path.Combine(appData, "Arcana", "settings.json");
-        _currentAction = numix;
+        _currentAction = arcana;
         _current = new CompositeIconProvider(_papirusProvider, _currentAction);
 
         var saved = ReadSavedTheme();
@@ -72,6 +75,7 @@ public sealed class IconThemeService
     /// <summary>Selectable built-in action themes, in menu order.</summary>
     public IReadOnlyList<string> BuiltInThemes { get; } = new[]
     {
+        PngIconThemeProvider.ArcanaName,
         PngIconThemeProvider.NumixName,
         PngIconThemeProvider.TangoName,
         PngIconThemeProvider.LaCapitaineName,
@@ -94,7 +98,7 @@ public sealed class IconThemeService
 
     public bool ApplyDefault()
     {
-        return ApplyTheme(PngIconThemeProvider.NumixName);
+        return ApplyTheme(PngIconThemeProvider.ArcanaName);
     }
 
     public bool ApplyTheme(string name)
@@ -340,5 +344,40 @@ public sealed class IconThemeService
             [IconKey.Settings] = "settings",
             [IconKey.SortUp] = "sort-up",
             [IconKey.SortDown] = "sort-down",
+        };
+
+    private static readonly IReadOnlyDictionary<IconKey, string> ArcanaSlots =
+        new Dictionary<IconKey, string>
+        {
+            [IconKey.Open] = "open",
+            [IconKey.Add] = "add",
+            [IconKey.Extract] = "extract",
+            [IconKey.Test] = "test",
+            [IconKey.View] = "view",
+            [IconKey.Delete] = "delete",
+            [IconKey.Find] = "find",
+            [IconKey.Info] = "info",
+            [IconKey.Save] = "save",
+            [IconKey.Settings] = "settings",
+            [IconKey.Help] = "help",
+            [IconKey.SortUp] = "sort-up",
+            [IconKey.SortDown] = "sort-down",
+            [IconKey.Close] = "close",
+            [IconKey.Split] = "split",
+            [IconKey.Convert] = "convert",
+            [IconKey.Password] = "password",
+            [IconKey.Rename] = "rename",
+            [IconKey.SelectAll] = "select-all",
+            [IconKey.Favorite] = "favorite",
+            [IconKey.Compare] = "compare",
+            [IconKey.Join] = "join",
+            [IconKey.Hash] = "hash",
+            [IconKey.Optimize] = "optimize",
+            [IconKey.Check] = "check",
+            [IconKey.ArrowBack] = "arrow-back",
+            [IconKey.ArrowForward] = "arrow-forward",
+            [IconKey.Copy] = "copy",
+            [IconKey.Refresh] = "refresh",
+            [IconKey.Play] = "play",
         };
 }

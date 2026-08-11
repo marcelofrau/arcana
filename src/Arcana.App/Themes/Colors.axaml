@@ -31,5 +31,89 @@
     <SolidColorBrush x:Key="AppHoverBrush" Color="{StaticResource AppHover}"/>
     <SolidColorBrush x:Key="AppSelectionBrush" Color="{StaticResource AppSelection}"/>
     <SolidColorBrush x:Key="AppSelectionUnfocusedBrush" Color="{StaticResource AppSelectionUnfocused}"/>
+    <Color x:Key="AppSelectionStrong">#5A4099</Color>
+
+    <SolidColorBrush x:Key="AppSurfaceLowBrush" Color="#121219"/>
+    <SolidColorBrush x:Key="AppDividerBrush" Color="#2E2E40"/>
+    <SolidColorBrush x:Key="AppAccentDimBrush" Color="#668B5CF6"/>
+
+    <!-- Accent action-button gradient (themed at runtime) -->
+    <LinearGradientBrush x:Key="AppAccentGradientBrush" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Offset="0" Color="#9F7AFF"/>
+        <GradientStop Offset="1" Color="#8B5CF6"/>
+    </LinearGradientBrush>
+
+    <!-- Accent alpha variants for magical glow/shimmer effects (themed at runtime) -->
+    <Color x:Key="AppAccentGlowInner">#4D8B5CF6</Color>
+    <Color x:Key="AppAccentGlowOuter">#008B5CF6</Color>
+    <Color x:Key="AppAccentShine">#738B5CF6</Color>
+    <Color x:Key="AppAccentShineClear">#008B5CF6</Color>
+
+    <!-- Accent-tinted chip surfaces (themed at runtime) -->
+    <Color x:Key="AppChipBg">#1FFFFFFF</Color>
+    <Color x:Key="AppChipBorder">#3D8B5CF6</Color>
+    <Color x:Key="AppAccentSoft">#228B5CF6</Color>
+    <Color x:Key="AppAccentSoftBorder">#338B5CF6</Color>
+
+    <RadialGradientBrush x:Key="AppToolbarGradientBrush" Center="50%,0%" RadiusX="80%" RadiusY="180%">
+        <GradientStop Offset="0" Color="#268B5CF6"/>
+        <GradientStop Offset="1" Color="#008B5CF6"/>
+    </RadialGradientBrush>
+
+    <!-- Glass / murrine action buttons (themed at runtime). Vertical gradients:
+         light sheen at top, solid color mid, deep shade at bottom + bright top rim. -->
+    <LinearGradientBrush x:Key="AppAccentGlassBrush" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Offset="0" Color="#CBB6FF"/>
+        <GradientStop Offset="0.4" Color="#8B5CF6"/>
+        <GradientStop Offset="1" Color="#6742BD"/>
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="AppAccentGlassHoverBrush" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Offset="0" Color="#E0D5FF"/>
+        <GradientStop Offset="0.4" Color="#9F7AFF"/>
+        <GradientStop Offset="1" Color="#8B5CF6"/>
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="AppAccentGlassPressedBrush" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Offset="0" Color="#A98DFF"/>
+        <GradientStop Offset="0.4" Color="#8B5CF6"/>
+        <GradientStop Offset="1" Color="#503087"/>
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="AppAccentGlassBorderBrush" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Offset="0" Color="#66FFFFFF"/>
+        <GradientStop Offset="0.7" Color="#14FFFFFF"/>
+        <GradientStop Offset="1" Color="#00FFFFFF"/>
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="AppGlassBrush" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Offset="0" Color="#1FFFFFFF"/>
+        <GradientStop Offset="0.5" Color="#08FFFFFF"/>
+        <GradientStop Offset="1" Color="#38000000"/>
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="AppGlassHoverBrush" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Offset="0" Color="#2EFFFFFF"/>
+        <GradientStop Offset="0.5" Color="#14FFFFFF"/>
+        <GradientStop Offset="1" Color="#30000000"/>
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="AppGlassPressedBrush" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Offset="0" Color="#10FFFFFF"/>
+        <GradientStop Offset="0.5" Color="#04FFFFFF"/>
+        <GradientStop Offset="1" Color="#52000000"/>
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="AppGlassBorderBrush" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Offset="0" Color="#3DFFFFFF"/>
+        <GradientStop Offset="0.7" Color="#0EFFFFFF"/>
+        <GradientStop Offset="1" Color="#00FFFFFF"/>
+    </LinearGradientBrush>
+
+    <!-- Focus rings (themed at runtime) -->
+    <LinearGradientBrush x:Key="AppFocusBorderBrush" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Offset="0" Color="#C7B0FF"/>
+        <GradientStop Offset="0.6" Color="#558B5CF6"/>
+        <GradientStop Offset="1" Color="#008B5CF6"/>
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="AppFocusAccentBorderBrush" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Offset="0" Color="#AAFFFFFF"/>
+        <GradientStop Offset="0.6" Color="#33FFFFFF"/>
+        <GradientStop Offset="1" Color="#00FFFFFF"/>
+    </LinearGradientBrush>
+    <SolidColorBrush x:Key="AppSelectionForegroundBrush" Color="White"/>
 
 </ResourceDictionary>
