@@ -10,6 +10,7 @@ Packages
 - SharpCompress 0.50.1, ZstdNet, Konscious.Argon2
 - System.CommandLine 2.0.10, Spectre.Console 0.57.2
 - Avalonia 12.1 + CommunityToolkit.Mvvm
+- Avalonia.Labs.Gif 12.0.0 (animated GIF preview), PdfPig 0.1.15 (PDF text extraction)
 - Hawkynt.FileFormats.Archives 1.0.0.696 (pure C#, ~240 format DLLs via FormatRegistry)
 - Serilog + Serilog.Sinks.Console
 - K4os.Compression.LZ4 1.3.8, Snappy.Sharp 1.0.0
@@ -56,7 +57,13 @@ Docs
 - Version: `{prefix}-build.{N}+{githash}`; CLI `--version` auto (System.CommandLine v2 RootCommand reads assembly info); git hash auto-appended by SDK via SourceRevisionId; About dialog reads runtime assembly version (not hardcoded)
 
 Next
-- Avalonia GUI: wire archive open, extract, preview
 - GitHub Actions CI
 - ChaCha20-Poly1305 implementation
-- Image preview + conversion
+- Image preview conversion
+
+Preview (implemented)
+- Text: txt/code/known metadata/utf8 detection; 256 KiB cap; failed/unknown decode → visible error banner, NOT silent hex (PreviewResult.Error)
+- Image: png/jpg/bmp/ico via Avalonia codecs
+- GIF: animated via Avalonia.Labs.Gif (GifStreamSource.FromStream), disposed on clear/replace
+- PDF: text extract via PdfPig (≤20 pages); docx/xlsx/pptx via SharpCompress zip XML (doc/xls binary → hex)
+- Hex: 64 KiB cap, on-demand via "Binary Preview" placeholder
