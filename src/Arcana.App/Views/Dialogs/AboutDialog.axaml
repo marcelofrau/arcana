@@ -1,0 +1,118 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Arcana.App.ViewModels"
+        xmlns:l="using:Arcana.App.Localization"
+        xmlns:icons="using:Arcana.App.Icons"
+        x:Class="Arcana.App.Views.Dialogs.AboutDialog"
+        x:DataType="vm:AboutViewModel"
+        Width="540"
+        SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        ShowInTaskbar="False"
+        Background="{DynamicResource AppSurfaceLowBrush}"
+        Title="{Binding Title}">
+
+    <Grid x:Name="Root" ClipToBounds="True"
+          Opacity="0">
+        <Grid.Transitions>
+            <Transitions>
+                <DoubleTransition Property="Opacity" Duration="0:0:0.45"/>
+            </Transitions>
+        </Grid.Transitions>
+
+        <!-- Ambient glow orbs -->
+        <Ellipse x:Name="OrbTop" Width="380" Height="300" HorizontalAlignment="Center" VerticalAlignment="Top"
+                 Margin="0,-180,0,0" IsHitTestVisible="False">
+            <Ellipse.Fill>
+                <RadialGradientBrush>
+                    <GradientStop Offset="0" Color="{DynamicResource AppAccentGlowInner}"/>
+                    <GradientStop Offset="1" Color="{DynamicResource AppAccentGlowOuter}"/>
+                </RadialGradientBrush>
+            </Ellipse.Fill>
+            <Ellipse.Effect>
+                <BlurEffect Radius="55"/>
+            </Ellipse.Effect>
+            <Ellipse.RenderTransform>
+                <TranslateTransform/>
+            </Ellipse.RenderTransform>
+        </Ellipse>
+
+        <Ellipse x:Name="OrbBottom" Width="420" Height="260" HorizontalAlignment="Center" VerticalAlignment="Bottom"
+                 Margin="0,0,0,-140" IsHitTestVisible="False">
+            <Ellipse.Fill>
+                <RadialGradientBrush>
+                    <GradientStop Offset="0" Color="{DynamicResource AppAccentGlowInner}"/>
+                    <GradientStop Offset="1" Color="{DynamicResource AppAccentGlowOuter}"/>
+                </RadialGradientBrush>
+            </Ellipse.Fill>
+            <Ellipse.Effect>
+                <BlurEffect Radius="50"/>
+            </Ellipse.Effect>
+            <Ellipse.RenderTransform>
+                <TranslateTransform/>
+            </Ellipse.RenderTransform>
+        </Ellipse>
+
+        <!-- Content -->
+        <StackPanel Margin="28,20,28,20" Spacing="5">
+            <Grid Height="200" ClipToBounds="True">
+                <Ellipse x:Name="LogoGlow" Width="380" Height="190" HorizontalAlignment="Center"
+                         VerticalAlignment="Center" Opacity="0.5" IsHitTestVisible="False">
+                    <Ellipse.Fill>
+                        <RadialGradientBrush>
+                            <GradientStop Offset="0" Color="{DynamicResource AppAccentGlowInner}"/>
+                            <GradientStop Offset="1" Color="{DynamicResource AppAccentGlowOuter}"/>
+                        </RadialGradientBrush>
+                    </Ellipse.Fill>
+                    <Ellipse.Effect>
+                        <BlurEffect Radius="40"/>
+                    </Ellipse.Effect>
+                </Ellipse>
+                <Image x:Name="LogoImage" MaxHeight="190" MaxWidth="380" Stretch="Uniform"
+                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Grid>
+
+            <TextBlock Text="{Binding Version}" FontSize="13"
+                       Foreground="{DynamicResource AppTextSecondaryBrush}"
+                       HorizontalAlignment="Center"/>
+
+            <TextBlock Text="{Binding Tagline}" FontSize="13" FontStyle="Italic"
+                       Foreground="{DynamicResource AppTextSecondaryBrush}"
+                       HorizontalAlignment="Center"/>
+
+            <TextBlock Margin="0,6,0,0" Text="{Binding SupportedFormats}" FontSize="12"
+                       Foreground="{DynamicResource AppTextSecondaryBrush}"
+                       HorizontalAlignment="Center"/>
+            <TextBlock Text="{Binding Formats}" FontSize="12"
+                       Foreground="{DynamicResource AppTextPrimaryBrush}"
+                       TextWrapping="Wrap" TextAlignment="Center"
+                       HorizontalAlignment="Center" MaxWidth="460"/>
+
+            <Border x:Name="CreditsBox" Margin="0,8,0,0" Height="120" CornerRadius="8"
+                    Background="{DynamicResource AppSurfaceRaisedBrush}"
+                    BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1"
+                    ClipToBounds="True">
+                <TextBlock x:Name="CreditsText" Text="{Binding Credits}" FontSize="13"
+                           LineHeight="20" TextAlignment="Center" TextWrapping="Wrap"
+                           MaxWidth="468" Foreground="{DynamicResource AppTextPrimaryBrush}"
+                           HorizontalAlignment="Stretch" VerticalAlignment="Top"
+                           Margin="8,8,8,0">
+                    <TextBlock.RenderTransform>
+                        <TranslateTransform/>
+                    </TextBlock.RenderTransform>
+                </TextBlock>
+            </Border>
+
+            <Button MinWidth="100" Classes="accent" Margin="0,8,0,0"
+                    HorizontalAlignment="Center" Click="OnOkClick">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <Image Width="14" Height="14" Stretch="Uniform"
+                           Tag="{x:Static icons:IconKey.Check}"
+                           Source="{Binding Tag, RelativeSource={RelativeSource Self}, Converter={StaticResource IconToImage}}"/>
+                    <TextBlock Text="{l:Loc Key=common.ok}" VerticalAlignment="Center"/>
+                </StackPanel>
+            </Button>
+        </StackPanel>
+    </Grid>
+</Window>
