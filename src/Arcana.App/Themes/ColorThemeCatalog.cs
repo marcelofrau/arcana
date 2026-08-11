@@ -122,9 +122,97 @@ public static class ColorThemeCatalog
         Hover = Color.Parse("#F7E27E"),
         Selection = Color.Parse("#7C9CE0"),
         SelectionUnfocused = Color.Parse("#B8BEC8"),
-        ToolbarTop = Color.Parse("#D0D0D0"),
-        ToolbarMid = Color.Parse("#F7E27E"),
-        ToolbarBottom = Color.Parse("#BFBFBF"),
+        ToolbarTop = Color.Parse("#FFDF4D"),
+        ToolbarMid = Color.Parse("#FFC500"),
+        ToolbarBottom = Color.Parse("#E0AC00"),
+    };
+
+    /// <summary>Follows the OS light/dark mode (Windows-flavored light palette,
+    /// Windows dark palette when the OS is dark).</summary>
+    public static ColorTheme System { get; } = new()
+    {
+        Id = "system",
+        DisplayName = "System",
+        Variant = ThemeVariant.Default,
+        Background = Color.Parse("#F0F0F0"),
+        Surface = Color.Parse("#FFFFFF"),
+        SurfaceRaised = Color.Parse("#FAFAFA"),
+        Border = Color.Parse("#D9D9D9"),
+        TextPrimary = Color.Parse("#1A1A1A"),
+        TextSecondary = Color.Parse("#6B6B6B"),
+        Accent = Color.Parse("#0078D4"),
+        AccentHover = Color.Parse("#106EBE"),
+        Success = Color.Parse("#0F7B0F"),
+        Warning = Color.Parse("#9D5D00"),
+        Error = Color.Parse("#C42B1C"),
+        Hover = Color.Parse("#EAF0F7"),
+        Selection = Color.Parse("#CDE6FA"),
+        SelectionUnfocused = Color.Parse("#E4EEF6"),
+        ToolbarTop = Color.Parse("#FFFFFF"),
+        ToolbarMid = Color.Parse("#FFFFFF"),
+        ToolbarBottom = Color.Parse("#F0F0F0"),
+        DarkTheme = new()
+        {
+            Id = "system-dark",
+            DisplayName = "System (dark)",
+            Variant = ThemeVariant.Dark,
+            Background = Color.Parse("#202020"),
+            Surface = Color.Parse("#2B2B2B"),
+            SurfaceRaised = Color.Parse("#323232"),
+            Border = Color.Parse("#454545"),
+            TextPrimary = Color.Parse("#F3F3F3"),
+            TextSecondary = Color.Parse("#A0A0A0"),
+            Accent = Color.Parse("#4CC2FF"),
+            AccentHover = Color.Parse("#3FA9EA"),
+            Success = Color.Parse("#6CCB5F"),
+            Warning = Color.Parse("#FCE100"),
+            Error = Color.Parse("#FF99A4"),
+            Hover = Color.Parse("#3A3A3A"),
+            Selection = Color.Parse("#2D5A87"),
+            SelectionUnfocused = Color.Parse("#2B3440"),
+        },
+    };
+
+    public static ColorTheme Light { get; } = new()
+    {
+        Id = "light",
+        DisplayName = "Light",
+        Variant = ThemeVariant.Light,
+        Background = Color.Parse("#F4F6FA"),
+        Surface = Color.Parse("#FFFFFF"),
+        SurfaceRaised = Color.Parse("#FAFBFD"),
+        Border = Color.Parse("#D8DCE4"),
+        TextPrimary = Color.Parse("#17202A"),
+        TextSecondary = Color.Parse("#5D6B7A"),
+        Accent = Color.Parse("#2E86DE"),
+        AccentHover = Color.Parse("#1F6FC0"),
+        Success = Color.Parse("#219653"),
+        Warning = Color.Parse("#B7791F"),
+        Error = Color.Parse("#D13438"),
+        Hover = Color.Parse("#EAF0F7"),
+        Selection = Color.Parse("#CBE1F7"),
+        SelectionUnfocused = Color.Parse("#DFE8F2"),
+    };
+
+    public static ColorTheme Dark { get; } = new()
+    {
+        Id = "dark",
+        DisplayName = "Dark",
+        Variant = ThemeVariant.Dark,
+        Background = Color.Parse("#101014"),
+        Surface = Color.Parse("#1A1A20"),
+        SurfaceRaised = Color.Parse("#22222A"),
+        Border = Color.Parse("#33333F"),
+        TextPrimary = Color.Parse("#E8E8EE"),
+        TextSecondary = Color.Parse("#9A9AA8"),
+        Accent = Color.Parse("#5E7CE2"),
+        AccentHover = Color.Parse("#738FF0"),
+        Success = Color.Parse("#3FB981"),
+        Warning = Color.Parse("#D9A441"),
+        Error = Color.Parse("#E26A6A"),
+        Hover = Color.Parse("#26262E"),
+        Selection = Color.Parse("#33436B"),
+        SelectionUnfocused = Color.Parse("#272B3A"),
     };
 
     public static IReadOnlyList<ColorTheme> All { get; } = BuildAll();
@@ -149,6 +237,9 @@ public static class ColorThemeCatalog
         list.Add(Windows2000);
         list.Add(WindowsXp);
         list.Add(BeOS);
+        list.Add(System);
+        list.Add(Light);
+        list.Add(Dark);
         return list;
     }
 

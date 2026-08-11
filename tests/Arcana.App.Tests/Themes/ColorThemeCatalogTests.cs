@@ -12,6 +12,7 @@ public class ColorThemeCatalogTests
         "arcanamystic", "akc12", "aquaverse", "blk-36", "brewerviridis",
         "neon-space", "shido-cyberneon", "slimy-05", "soapy-10",
         "windows2000", "windowsxp", "beos",
+        "system", "light", "dark",
     };
 
     private static readonly string[] RetroIds = { "windows2000", "windowsxp", "beos" };
@@ -48,7 +49,8 @@ public class ColorThemeCatalogTests
     [Fact]
     public void PaletteThemes_ShouldBeDarkVariant()
     {
-        foreach (var id in ExpectedIds.Except(RetroIds))
+        var notDark = new[] { "windows2000", "windowsxp", "beos", "system", "light" };
+        foreach (var id in ExpectedIds.Except(notDark))
             ColorThemeCatalog.Find(id)!.Variant.Should().Be(ThemeVariant.Dark, id);
     }
 
@@ -57,6 +59,24 @@ public class ColorThemeCatalogTests
     {
         foreach (var id in RetroIds)
             ColorThemeCatalog.Find(id)!.Variant.Should().Be(ThemeVariant.Light, id);
+    }
+
+    [Fact]
+    public void SystemTheme_ShouldFollowOsWithDarkPalette()
+    {
+        var theme = ColorThemeCatalog.Find("system")!;
+        theme.Variant.Should().Be(ThemeVariant.Default);
+        theme.DarkTheme.Should().NotBeNull();
+        theme.DarkTheme!.Variant.Should().Be(ThemeVariant.Dark);
+        theme.DarkTheme.Background.Should().NotBe(theme.Background);
+    }
+
+    [Fact]
+    public void NamedLightAndDarkThemes_ShouldUseCorrectVariants()
+    {
+        ColorThemeCatalog.Find("light")!.Variant.Should().Be(ThemeVariant.Light);
+        ColorThemeCatalog.Find("dark")!.Variant.Should().Be(ThemeVariant.Dark);
+        ColorThemeCatalog.Find("dark")!.Background.Should().NotBe(ColorThemeCatalog.Find("light")!.Background);
     }
 
     [Fact]

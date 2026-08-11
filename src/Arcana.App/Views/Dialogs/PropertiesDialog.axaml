@@ -51,14 +51,15 @@
             </Grid>
 
             <Grid ColumnDefinitions="168,20,*">
-                <!-- WinACE-style cylinder: how full the "pot" of compressed data is -->
+                <!-- Isometric 3D bar: how much of the original the compressed
+                     data occupies; the readout shows the compression savings -->
                 <StackPanel Grid.Column="0" HorizontalAlignment="Center" Spacing="6">
-                    <controls:CylinderChart Width="150" Height="215"
-                                            FilledRatio="{Binding Ratio}"
-                                            FillBrush="{DynamicResource AppAccentBrush}"
-                                            EmptyBrush="{DynamicResource AppSurfaceRaisedBrush}"
-                                            RimBrush="{DynamicResource AppBorderBrush}"
-                                            TextBrush="{DynamicResource AppTextPrimaryBrush}"/>
+                    <controls:IsometricBarChart Width="150" Height="215"
+                                                FilledRatio="{Binding Ratio}"
+                                                FillBrush="{DynamicResource AppAccentBrush}"
+                                                EmptyBrush="{DynamicResource AppSurfaceRaisedBrush}"
+                                                RimBrush="{DynamicResource AppBorderBrush}"
+                                                TextBrush="{DynamicResource AppTextPrimaryBrush}"/>
                     <StackPanel Spacing="3" HorizontalAlignment="Center">
                         <Grid ColumnDefinitions="10,*" ColumnSpacing="6">
                             <Border Width="10" Height="10" CornerRadius="3" VerticalAlignment="Center"

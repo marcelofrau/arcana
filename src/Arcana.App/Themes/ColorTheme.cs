@@ -19,6 +19,13 @@ public sealed class ColorTheme
     /// <summary>Light or dark — drives FluentTheme via RequestedThemeVariant.</summary>
     public ThemeVariant Variant { get; init; } = ThemeVariant.Dark;
 
+    /// <summary>
+    /// For themes whose <see cref="Variant"/> is <see cref="ThemeVariant.Default"/>
+    /// (follows the OS): the palette to swap in when the OS is in dark mode (the base
+    /// palette is the light one). Null falls back to the base palette in both modes.
+    /// </summary>
+    public ColorTheme? DarkTheme { get; init; }
+
     public required Color Background { get; init; }
     public required Color Surface { get; init; }
     public required Color SurfaceRaised { get; init; }
