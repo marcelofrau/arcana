@@ -6,6 +6,8 @@ using System.Linq;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
+using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Threading;
 using Arcana.App.Icons;
@@ -72,6 +74,16 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private bool _commentsVisible = true;
 
+    /// <summary>Width of the folder-tree column. Collapses to 0 when the file list
+    /// toggle is off so the file table expands to fill the window.</summary>
+    [ObservableProperty]
+    private Avalonia.Controls.GridLength _fileListPaneWidth = new(240);
+
+    /// <summary>Width of the preview column. Collapses to 0 when the preview toggle
+    /// is off so the file table expands to fill the window.</summary>
+    [ObservableProperty]
+    private Avalonia.Controls.GridLength _previewPaneWidth = new(320);
+
     private string? _currentPath;
 
     public IconThemeService IconThemes => _themes;
@@ -131,6 +143,8 @@ public partial class MainViewModel : ObservableObject
         ToolbarVisible = _settings.ShowToolbar;
         FileListVisible = _settings.ShowFileList;
         CommentsVisible = _settings.ShowComments;
+        FileListPaneWidth = new GridLength(FileListVisible ? 240 : 0);
+        PreviewPaneWidth = new GridLength(CommentsVisible ? 320 : 0);
 
         BuildToolbar();
         RefreshThemes();
@@ -148,7 +162,6 @@ public partial class MainViewModel : ObservableObject
         AddToolButton(IconKey.Add, T("toolbar.new"), T("toolbar.newTooltip"), NewArchiveCommand);
         AddToolButton(IconKey.Extract, T("toolbar.extract"), T("toolbar.extractTooltip"), ExtractCommand);
         AddToolButton(IconKey.Test, T("toolbar.test"), T("toolbar.testTooltip"), TestCommand);
-        AddToolButton(IconKey.View, T("toolbar.view"), T("toolbar.viewTooltip"), TogglePreviewCommand);
         AddToolButton(IconKey.Delete, T("toolbar.delete"), T("toolbar.deleteTooltip"), DeleteCommand);
         AddToolButton(IconKey.Find, T("toolbar.find"), T("toolbar.findTooltip"), FindCommand);
         AddToolButton(IconKey.Info, T("toolbar.info"), T("toolbar.infoTooltip"), InfoCommand);
@@ -852,9 +865,20 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private void ToggleToolbar() => ToggleSetting(nameof(ToolbarVisible), ToolbarVisible = !ToolbarVisible);
     [RelayCommand]
-    private void ToggleFileList() => ToggleSetting(nameof(FileListVisible), FileListVisible = !FileListVisible);
+    private void ToggleFileList()
+    {
+        FileListVisible = !FileListVisible;
+        FileListPaneWidth = new GridLength(FileListVisible ? 240 : 0);
+        ToggleSetting(nameof(FileListVisible), FileListVisible);
+    }
+
     [RelayCommand]
-    private void ToggleComments() => ToggleSetting(nameof(CommentsVisible), CommentsVisible = !CommentsVisible);
+    private void TogglePreview()
+    {
+        CommentsVisible = !CommentsVisible;
+        PreviewPaneWidth = new GridLength(CommentsVisible ? 320 : 0);
+        ToggleSetting(nameof(CommentsVisible), CommentsVisible);
+    }
 
     [RelayCommand]
     private async Task HelpTopics()
@@ -979,9 +1003,6 @@ public partial class MainViewModel : ObservableObject
     }
 
     private bool CanInfo() => Archive.SelectedItem != null;
-
-    [RelayCommand]
-    private void TogglePreview() => ToggleComments();
 
     [RelayCommand]
     private async Task Find()

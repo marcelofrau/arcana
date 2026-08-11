@@ -230,4 +230,40 @@ public class PaneBindingTests
         main.Preview.Kind.Should().Be(PreviewKind.Text);
         main.Preview.TextContent.Should().Be("hello world");
     }
+
+    [Fact]
+    public void TogglePreview_CollapsesAndRestoresPaneWidth()
+    {
+        var main = CreateMainVm();
+
+        main.PreviewPaneWidth.Value.Should().Be(320);
+
+        main.TogglePreviewCommand.Execute(null);
+
+        main.CommentsVisible.Should().BeFalse();
+        main.PreviewPaneWidth.Value.Should().Be(0);
+
+        main.TogglePreviewCommand.Execute(null);
+
+        main.CommentsVisible.Should().BeTrue();
+        main.PreviewPaneWidth.Value.Should().Be(320);
+    }
+
+    [Fact]
+    public void ToggleFileList_CollapsesAndRestoresPaneWidth()
+    {
+        var main = CreateMainVm();
+
+        main.FileListPaneWidth.Value.Should().Be(240);
+
+        main.ToggleFileListCommand.Execute(null);
+
+        main.FileListVisible.Should().BeFalse();
+        main.FileListPaneWidth.Value.Should().Be(0);
+
+        main.ToggleFileListCommand.Execute(null);
+
+        main.FileListVisible.Should().BeTrue();
+        main.FileListPaneWidth.Value.Should().Be(240);
+    }
 }
