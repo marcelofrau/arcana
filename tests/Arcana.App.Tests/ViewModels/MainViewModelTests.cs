@@ -14,6 +14,7 @@ public class MainViewModelTests
         new Arcana.App.Icons.DefaultIconProvider(),
         SettingsServiceTemp(),
         new Services.FavoritesService(),
+        new Services.RecentArchivesService(),
         new Arcana.App.Themes.ColorThemeService(SettingsServiceTemp()));
 
     private static Services.SettingsService SettingsServiceTemp()
@@ -60,8 +61,8 @@ public class MainViewModelTests
     }
 
     [Fact]
-    public void ThemeMenuItems_ShouldMarkNumixAsCurrentByDefault()
+    public void ThemeMenuItems_ShouldMarkArcanaAsCurrentByDefault()
     {
-        _sut.ThemeMenuItems.Single(i => i.IsCurrent).Name.Should().Be("Numix");
+        _sut.ThemeMenuItems.Single(i => i.IsCurrent).Name.Should().Be("Arcana");
     }
 }

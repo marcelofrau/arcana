@@ -13,10 +13,12 @@
               CanUserResizeColumns="True"
               IsReadOnly="True"
               SelectionMode="Extended"
-              GridLinesVisibility="Horizontal"
+              GridLinesVisibility="None"
+              DragDrop.AllowDrop="True"
+              DragDrop.DragOver="OnDragOver"
+              DragDrop.Drop="OnDrop"
               SelectionChanged="OnSelectionChanged"
-              DoubleTapped="OnDoubleTapped"
-              KeyDown="OnKeyDown">
+              DoubleTapped="OnDoubleTapped">
         <DataGrid.Columns>
             <DataGridTemplateColumn Header="{l:Loc Key=filetable.name}" SortMemberPath="Name" Width="2*">
                 <DataGridTemplateColumn.CellTemplate>

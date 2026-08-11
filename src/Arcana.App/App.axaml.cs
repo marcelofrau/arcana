@@ -41,6 +41,7 @@ public partial class App : Application
         services.AddSingleton<DialogService>();
         services.AddSingleton<SettingsService>();
         services.AddSingleton<FavoritesService>();
+        services.AddSingleton<RecentArchivesService>();
         services.AddSingleton<DefaultIconProvider>();
         services.AddSingleton<IconThemeService>();
         services.AddSingleton<ColorThemeService>();

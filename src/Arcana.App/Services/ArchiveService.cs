@@ -24,18 +24,26 @@ public class ArchiveService
     public async Task SaveAsync(Archive archive, string path, CompressionOptions options,
                                 IProgress<ProgressReport>? progress = null, CancellationToken ct = default)
     {
-        await using var stream = File.Create(path);
-        await archive.FormatEngine.SaveAsync(archive, stream, options, progress, ct);
+        await using var file = File.Create(path);
+        // Write-side counter: reports compressed bytes written live, driving the
+        // overall bar and the compression-ratio chart in the progress dialog.
+        using var counted = new ProgressStream(file, progress, operation: "Compressing", isOutput: true);
+        await archive.FormatEngine.SaveAsync(archive, counted, options, progress, ct);
+        Log.Information("Saved archive to {Path}", path);
     }
 
-    public async Task ExtractAsync(Archive archive, ArchiveNode node, string destinationDir,
-                                   IProgress<ProgressReport>? progress = null, CancellationToken ct = default)
+    public async Task<ExtractResult> ExtractAsync(Archive archive, ArchiveNode node, string destinationDir,
+        bool overwrite, IProgress<ProgressReport>? progress = null, CancellationToken ct = default)
     {
         Directory.CreateDirectory(destinationDir);
 
         var files = new List<ArchiveNode>();
         CollectFiles(node, files);
         var done = 0;
+        var extracted = 0;
+        var skipped = 0;
+        var overwritten = 0;
+        var fileEntries = new List<ExtractedFile>();
 
         foreach (var file in files)
         {
@@ -46,10 +54,31 @@ public class ArchiveService
             if (!string.IsNullOrEmpty(parent))
                 Directory.CreateDirectory(parent);
 
+            if (File.Exists(target) && !overwrite)
+            {
+                skipped++;
+                fileEntries.Add(new ExtractedFile(rel, ExtractStatus.Skipped));
+                progress?.Report(new ProgressReport
+                {
+                    CurrentFile = file.Name,
+                    FilesProcessed = ++done,
+                    TotalFiles = files.Count,
+                    CurrentOperation = "Extracting",
+                });
+                continue;
+            }
+
+            var wasOverwrite = File.Exists(target);
             await using var src = file.OpenRead();
-            await using var dst = File.Create(target);
+            // Write-side counter: reports bytes written to disk, which drives the
+            // per-file bar and the speed chart during extraction.
+            await using var dst = new ProgressStream(File.Create(target), progress,
+                currentFile: file.Name, totalBytes: file.OriginalSize,
+                filesProcessed: done, totalFiles: files.Count, operation: "Extracting", isOutput: true);
             await src.CopyToAsync(dst, ct);
 
+            if (wasOverwrite) overwritten++; else extracted++;
+            fileEntries.Add(new ExtractedFile(rel, wasOverwrite ? ExtractStatus.Overwritten : ExtractStatus.Extracted));
             done++;
             progress?.Report(new ProgressReport
             {
@@ -60,7 +89,9 @@ public class ArchiveService
             });
         }
 
-        Log.Information("Extracted {Count} files to {Destination}", files.Count, destinationDir);
+        Log.Information("Extracted {Extracted} (overwritten {Overwritten}, skipped {Skipped}) to {Destination}",
+            extracted, overwritten, skipped, destinationDir);
+        return new ExtractResult(extracted, skipped, overwritten, fileEntries);
     }
 
     public async Task<IReadOnlyList<TestResult>> TestAsync(Archive archive, ArchiveNode node,
@@ -173,3 +204,11 @@ public class ArchiveService
 }
 
 public sealed record TestResult(string Path, bool Success, string Message);
+
+/// <summary>Outcome of an extracted entry, used for the completion dialog badges.</summary>
+public enum ExtractStatus { Extracted, Skipped, Overwritten }
+
+public sealed record ExtractedFile(string RelativePath, ExtractStatus Status);
+
+public sealed record ExtractResult(
+    int Extracted, int Skipped, int Overwritten, IReadOnlyList<ExtractedFile> Files);

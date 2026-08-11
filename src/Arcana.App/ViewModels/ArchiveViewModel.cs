@@ -183,7 +183,7 @@ public partial class ArchiveViewModel : ObservableObject
         ContentsChanged?.Invoke(this, EventArgs.Empty);
     }
 
-    private bool CanDelete() => SelectedItem != null;
+    private bool CanDelete() => SelectedItem is { IsParent: false };
 
     public void NavigateTo(ArchiveNode node)
     {
@@ -195,16 +195,16 @@ public partial class ArchiveViewModel : ObservableObject
 
         Log.Debug("Navigating to {Path}", node.FullPath);
         CurrentNode = node;
-        TreeNodes.Clear();
-        TreeNodes.Add(Root);
     }
 
-    public long TotalSizeOfCurrent => _fullEntries.Where(e => !e.IsDirectory).Sum(e => e.Node.OriginalSize);
+    public long TotalSizeOfCurrent => _fullEntries
+        .Where(e => !e.IsDirectory && !e.IsParent)
+        .Sum(e => e.Node.OriginalSize);
 
     public string BuildStatusText()
     {
-        var files = _fullEntries.Count(e => !e.IsDirectory);
-        var dirs = _fullEntries.Count - files;
+        var files = _fullEntries.Count(e => !e.IsDirectory && !e.IsParent);
+        var dirs = _fullEntries.Count(e => e.IsDirectory && !e.IsParent);
         var total = TotalSizeOfCurrent;
 
         var text = $"{files} files · {ByteFormat.Format(total)}";
@@ -233,6 +233,9 @@ public partial class ArchiveViewModel : ObservableObject
             .Select(c => new FileEntryItem(c))
             .ToList();
 
+        if (CurrentNode.Parent is { } parent)
+            items.Insert(0, FileEntryItem.Parent(parent));
+
         _fullEntries = new ObservableCollection<FileEntryItem>(items);
         Entries = new ObservableCollection<FileEntryItem>(_fullEntries);
         ApplyFilter();
@@ -249,6 +252,7 @@ public partial class ArchiveViewModel : ObservableObject
 
         Entries = new ObservableCollection<FileEntryItem>(
             _fullEntries.Where(e =>
+                e.IsParent ||
                 e.Name.Contains(Filter, StringComparison.OrdinalIgnoreCase)));
     }
 

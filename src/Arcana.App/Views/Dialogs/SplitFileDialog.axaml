@@ -2,6 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:Arcana.App.ViewModels"
         xmlns:l="using:Arcana.App.Localization"
+        xmlns:icons="using:Arcana.App.Icons"
         x:Class="Arcana.App.Views.Dialogs.SplitFileDialog"
         x:DataType="vm:SplitFileViewModel"
         Width="520"
@@ -28,7 +29,14 @@
                      Foreground="{DynamicResource AppTextPrimaryBrush}"
                      BorderBrush="{DynamicResource AppBorderBrush}"
                      Padding="6,3"/>
-            <Button Grid.Column="2" Content="{l:Loc Key=common.browse}" MinWidth="80" Click="OnBrowseDestClick"/>
+            <Button Grid.Column="2" MinWidth="80" Classes="secondary" Click="OnBrowseDestClick">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <Image Width="14" Height="14" Stretch="Uniform"
+                           Tag="{x:Static icons:IconKey.Folder}"
+                           Source="{Binding Tag, RelativeSource={RelativeSource Self}, Converter={StaticResource IconToImage}}"/>
+                    <TextBlock Text="{l:Loc Key=common.browse}" VerticalAlignment="Center"/>
+                </StackPanel>
+            </Button>
 
             <TextBlock Grid.Row="1" Text="{l:Loc Key=dialog.split.partSize}" VerticalAlignment="Center"
                        Foreground="{DynamicResource AppTextSecondaryBrush}"/>
@@ -40,11 +48,23 @@
                       IsChecked="{Binding HjsplitMode, Mode=TwoWay}"/>
         </Grid>
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
-            <Button Content="{l:Loc Key=common.cancel}" MinWidth="90" Click="OnCancelClick"/>
-            <Button Content="{l:Loc Key=common.ok}" MinWidth="90"
-                    Click="OnOkClick"
-                    Background="{DynamicResource AppAccentBrush}"
-                    Foreground="White"/>
+            <Button MinWidth="90" Classes="secondary" Click="OnCancelClick">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <Image Width="14" Height="14" Stretch="Uniform"
+                           Tag="{x:Static icons:IconKey.Close}"
+                           Source="{Binding Tag, RelativeSource={RelativeSource Self}, Converter={StaticResource IconToImage}}"/>
+                    <TextBlock Text="{l:Loc Key=common.cancel}" VerticalAlignment="Center"/>
+                </StackPanel>
+            </Button>
+            <Button MinWidth="90" Classes="accent"
+                    Click="OnOkClick">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <Image Width="14" Height="14" Stretch="Uniform"
+                           Tag="{x:Static icons:IconKey.Check}"
+                           Source="{Binding Tag, RelativeSource={RelativeSource Self}, Converter={StaticResource IconToImage}}"/>
+                    <TextBlock Text="{l:Loc Key=common.ok}" VerticalAlignment="Center"/>
+                </StackPanel>
+            </Button>
         </StackPanel>
     </StackPanel>
 </Window>

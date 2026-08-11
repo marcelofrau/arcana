@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.ComponentModel;
 using Avalonia.Controls;
 using Avalonia.Threading;
@@ -41,9 +42,39 @@ public partial class FolderTree : UserControl
         if (archive.CurrentNode is not { } node)
             return;
 
+        ExpandAncestors(node);
+        Reveal(node);
+    }
+
+    private void ExpandAncestors(ArchiveNode node)
+    {
+        var path = new Stack<ArchiveNode>();
+        for (var n = node.Parent; n != null; n = n.Parent)
+            path.Push(n);
+
+        TreeViewItem? parent = null;
+        while (path.Count > 0)
+        {
+            var current = path.Pop();
+            var container = (parent == null
+                ? Tree.ContainerFromItem(current)
+                : parent.ContainerFromItem(current)) as TreeViewItem;
+            if (container == null)
+                return;
+            container.IsExpanded = true;
+            parent = container;
+        }
+    }
+
+    private void Reveal(ArchiveNode node, int attempt = 0)
+    {
         var container = Tree.ContainerFromItem(node) as TreeViewItem;
         if (container == null)
+        {
+            if (attempt < 5)
+                Dispatcher.UIThread.Post(() => Reveal(node, attempt + 1));
             return;
+        }
         container.IsSelected = true;
         container.BringIntoView();
     }

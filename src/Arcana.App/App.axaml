@@ -24,16 +24,21 @@
             <icons:NodeIconConverter x:Key="NodeIcon"/>
             <conv:EqualsConverter x:Key="Equals"/>
             <conv:InvertBoolConverter x:Key="Invert"/>
+            <conv:ExtractStatusTextConverter x:Key="ExtractStatusText"/>
+            <conv:ExtractStatusBrushConverter x:Key="ExtractStatusBrush"/>
 
             <!-- DataGrid overrides (tokens are pushed at runtime by ColorThemeService) -->
             <SolidColorBrush x:Key="DataGridBackgroundBrush" Color="{DynamicResource AppSurface}"/>
             <SolidColorBrush x:Key="DataGridHeaderBackgroundBrush" Color="{DynamicResource AppSurfaceRaised}"/>
             <SolidColorBrush x:Key="DataGridGridLinesBrush" Color="{DynamicResource AppBorder}"/>
             <SolidColorBrush x:Key="DataGridRowHoverBackgroundBrush" Color="{DynamicResource AppHover}"/>
-            <SolidColorBrush x:Key="DataGridRowSelectedBackgroundBrush" Color="{DynamicResource AppSelection}"/>
+            <SolidColorBrush x:Key="DataGridRowSelectedBackgroundBrush" Color="{DynamicResource AppSelectionStrong}"/>
             <SolidColorBrush x:Key="DataGridRowSelectedUnfocusedBackgroundBrush" Color="{DynamicResource AppSelectionUnfocused}"/>
-            <SolidColorBrush x:Key="DataGridCellSelectedBackgroundBrush" Color="{DynamicResource AppSelection}"/>
-            <SolidColorBrush x:Key="DataGridColumnHeaderForegroundBrush" Color="{DynamicResource AppTextSecondary}"/>
+            <SolidColorBrush x:Key="DataGridCellSelectedBackgroundBrush" Color="{DynamicResource AppSelectionStrong}"/>
+<SolidColorBrush x:Key="DataGridCellFocusVisualPrimaryBrush" Color="Transparent"/>
+<SolidColorBrush x:Key="DataGridCellFocusVisualSecondaryBrush" Color="Transparent"/>
+<SolidColorBrush x:Key="DataGridCurrencyVisualPrimaryBrush" Color="Transparent"/>
+<SolidColorBrush x:Key="DataGridColumnHeaderForegroundBrush" Color="{DynamicResource AppTextSecondary}"/>
             <SolidColorBrush x:Key="DataGridColumnHeaderHoverBackgroundBrush" Color="{DynamicResource AppHover}"/>
             <SolidColorBrush x:Key="DataGridColumnHeaderPressedBackgroundBrush" Color="{DynamicResource AppBorder}"/>
             <SolidColorBrush x:Key="DataGridCellForegroundBrush" Color="{DynamicResource AppTextPrimary}"/>

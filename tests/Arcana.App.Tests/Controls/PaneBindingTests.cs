@@ -22,6 +22,7 @@ public class PaneBindingTests
         new Icons.DefaultIconProvider(),
         new Services.SettingsService(),
         new Services.FavoritesService(),
+        new Services.RecentArchivesService(),
         new Arcana.App.Themes.ColorThemeService(new Services.SettingsService()));
 
     private static async Task<Archive> CreateZipArchiveAsync(params (string Path, string Content)[] files)

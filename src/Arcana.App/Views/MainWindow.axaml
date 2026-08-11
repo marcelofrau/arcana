@@ -14,7 +14,13 @@
         Icon="/Assets/arcana.ico"
         Width="1200" Height="800"
         MinWidth="900" MinHeight="600">
-    <Grid RowDefinitions="Auto,Auto,*,Auto">
+    <Grid x:Name="Root" RowDefinitions="Auto,Auto,*,Auto"
+          Opacity="0">
+        <Grid.Transitions>
+            <Transitions>
+                <DoubleTransition Property="Opacity" Duration="0:0:0.45"/>
+            </Transitions>
+        </Grid.Transitions>
 
         <Menu Grid.Row="0" IsVisible="{Binding MenuBarVisible}">
             <MenuItem Header="{l:Loc Key=menu.file}">
@@ -23,6 +29,20 @@
                         <Image Tag="{x:Static icons:IconKey.Open}" Width="18" Height="18" Stretch="Uniform"
                                Source="{Binding Tag, RelativeSource={RelativeSource Self}, Converter={StaticResource IconToImage}}"/>
                     </MenuItem.Icon>
+                </MenuItem>
+                <MenuItem Header="{l:Loc Key=menu.file.openRecent}" ItemsSource="{Binding RecentItems}">
+                    <MenuItem.Icon>
+                        <Image Tag="{x:Static icons:IconKey.Open}" Width="18" Height="18" Stretch="Uniform"
+                               Source="{Binding Tag, RelativeSource={RelativeSource Self}, Converter={StaticResource IconToImage}}"/>
+                    </MenuItem.Icon>
+                    <MenuItem.ItemContainerTheme>
+                        <ControlTheme TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}">
+                            <Setter Property="Header" Value="{Binding Name, x:DataType=svc:RecentItem}"/>
+                            <Setter Property="Command" Value="{Binding OpenCommand, x:DataType=svc:RecentItem}"/>
+                        </ControlTheme>
+                    </MenuItem.ItemContainerTheme>
+                    <Separator/>
+                    <MenuItem Header="{l:Loc Key=menu.file.openRecentClear}" Command="{Binding ClearRecentCommand}"/>
                 </MenuItem>
                 <MenuItem Header="{l:Loc Key=menu.file.openArchiveWith}" Command="{Binding OpenArchiveWithCommand}" IsEnabled="False" ToolTip.Tip="{l:Loc Key=common.notSupported}"/>
                 <MenuItem Header="{l:Loc Key=menu.file.browse}" Command="{Binding BrowseCommand}" IsEnabled="False" ToolTip.Tip="{l:Loc Key=common.notSupported}"/>
@@ -286,27 +306,29 @@
             </MenuItem>
         </Menu>
 
-        <Border Grid.Row="1" Classes="toolbar" Padding="6,3" IsVisible="{Binding ToolbarVisible}">
-            <ItemsControl ItemsSource="{Binding Toolbar}">
-                <ItemsControl.ItemsPanel>
-                    <ItemsPanelTemplate>
-                        <StackPanel Orientation="Horizontal" Spacing="2"/>
-                    </ItemsPanelTemplate>
-                </ItemsControl.ItemsPanel>
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate x:DataType="vm:ToolBarButton">
-                        <Button Classes="tool" Command="{Binding Command}"
-                                ToolTip.Tip="{Binding ToolTip}" Padding="6,3">
-                            <StackPanel Orientation="Vertical" Classes="toolbar-label" Spacing="2">
-                                <Image Source="{Binding Image}" Stretch="Uniform"
-                                       Width="{Binding Size}" Height="{Binding Size}"
-                                       HorizontalAlignment="Center"/>
-                                <TextBlock Text="{Binding Label}" HorizontalAlignment="Center"/>
-                            </StackPanel>
-                        </Button>
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
+        <Border Grid.Row="1" Classes="toolbar" Padding="6,3" IsVisible="{Binding ToolbarVisible}" ClipToBounds="True">
+            <Grid>
+                <ItemsControl ItemsSource="{Binding Toolbar}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Orientation="Horizontal" Spacing="2"/>
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:ToolBarButton">
+                            <Button Classes="tool" Command="{Binding Command}"
+                                    ToolTip.Tip="{Binding ToolTip}" Padding="6,3">
+                                <StackPanel Orientation="Vertical" Classes="toolbar-label" Spacing="2">
+                                    <Image Source="{Binding Image}" Stretch="Uniform"
+                                           Width="{Binding Size}" Height="{Binding Size}"
+                                           HorizontalAlignment="Center"/>
+                                    <TextBlock Text="{Binding Label}" HorizontalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </Grid>
         </Border>
 
         <Grid Grid.Row="2" ColumnDefinitions="240,4,*,4,320">
@@ -339,8 +361,36 @@
             <controls:PreviewPanel Grid.Column="4" IsVisible="{Binding CommentsVisible}"/>
         </Grid>
 
+        <!-- Opening overlay: dims the columns while a heavy archive loads -->
+        <Grid Grid.Row="2" IsVisible="{Binding IsBusy}">
+            <Border Background="{DynamicResource AppSurfaceLowBrush}" Opacity="0.62"/>
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="14">
+                <Border x:Name="OpenOverlayChip" Width="76" Height="76" CornerRadius="22"
+                        HorizontalAlignment="Center"
+                        Background="{DynamicResource AppChipBg}"
+                        BorderBrush="{DynamicResource AppChipBorder}" BorderThickness="1">
+                    <Image Width="34" Height="34" Stretch="Uniform"
+                           Tag="{x:Static icons:IconKey.Open}"
+                           Source="{Binding Tag, RelativeSource={RelativeSource Self}, Converter={StaticResource IconToImage}}"/>
+                </Border>
+                <TextBlock Text="{Binding BusyText}" FontSize="14"
+                           Foreground="{DynamicResource AppTextPrimaryBrush}"
+                           HorizontalAlignment="Center"/>
+                <ProgressBar Width="180" Height="4" IsIndeterminate="True"/>
+            </StackPanel>
+        </Grid>
+
         <Border Grid.Row="3" Classes="statusbar" Padding="10,3">
             <DockPanel>
+                <Ellipse x:Name="MagicDot" Width="8" Height="8" Margin="0,0,8,0"
+                         DockPanel.Dock="Left" VerticalAlignment="Center" IsHitTestVisible="False">
+                    <Ellipse.Fill>
+                        <RadialGradientBrush>
+                            <GradientStop Offset="0" Color="{DynamicResource AppAccentGlowInner}"/>
+                            <GradientStop Offset="1" Color="{DynamicResource AppAccentShine}"/>
+                        </RadialGradientBrush>
+                    </Ellipse.Fill>
+                </Ellipse>
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal"
                             Spacing="8" VerticalAlignment="Center">
                     <ProgressBar Width="120" Height="4" IsIndeterminate="True"

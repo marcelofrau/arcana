@@ -1,5 +1,6 @@
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Arcana.App.ViewModels;
 
 namespace Arcana.App.Views.Dialogs;
 
@@ -8,10 +9,19 @@ public partial class InfoDialog : Window
     public InfoDialog()
     {
         InitializeComponent();
+        Opened += (_, _) => ActionButton.IsVisible =
+            DataContext is InfoViewModel vm && vm.ActionButtonText != null;
     }
 
     private void OnOkClick(object? sender, RoutedEventArgs e)
     {
+        Close();
+    }
+
+    private void OnActionClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is InfoViewModel { Action: { } action })
+            action();
         Close();
     }
 }

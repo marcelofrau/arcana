@@ -12,13 +12,20 @@ public partial class FileEntryItem : ObservableObject
 {
     public ArchiveNode Node { get; }
 
-    public FileEntryItem(ArchiveNode node)
+    /// <summary>True for the synthetic ".." entry shown while a subfolder is open.</summary>
+    public bool IsParent { get; }
+
+    public FileEntryItem(ArchiveNode node, bool isParent = false)
     {
         Node = node;
+        IsParent = isParent;
     }
 
-    public string Name => Node.Name;
-    public bool IsDirectory => Node.Type == NodeType.Directory;
+    /// <summary>Synthetic parent-folder entry pointing at <paramref name="parent"/>.</summary>
+    public static FileEntryItem Parent(ArchiveNode parent) => new(parent, isParent: true);
+
+    public string Name => IsParent ? ".." : Node.Name;
+    public bool IsDirectory => IsParent || Node.Type == NodeType.Directory;
     public string Ext => IsDirectory ? "" : Path.GetExtension(Node.Name);
 
     public string TypeText => IsDirectory ? "Folder"
