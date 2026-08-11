@@ -1,0 +1,27 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vmw="using:Arcana.App.ViewModels.Wizard"
+             xmlns:l="using:Arcana.App.Localization"
+             x:Class="Arcana.App.Views.Wizards.ConvertFormatStepView"
+             x:DataType="vmw:ConvertFormatStep">
+    <StackPanel Spacing="16">
+        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10" RowDefinitions="Auto,Auto" RowSpacing="14">
+            <TextBlock Text="{l:Loc Key=wizard.convert.formatLabel}" VerticalAlignment="Center"
+                       Foreground="{DynamicResource AppTextPrimaryBrush}"/>
+            <ComboBox Grid.Column="1"
+                      ItemsSource="{Binding Formats}"
+                      DisplayMemberBinding="{Binding Label}"
+                      SelectedItem="{Binding SelectedFormat, Mode=TwoWay}"/>
+
+            <TextBlock Grid.Row="1" Text="{l:Loc Key=wizard.create.levelLabel}" VerticalAlignment="Center"
+                       Foreground="{DynamicResource AppTextPrimaryBrush}"/>
+            <StackPanel Grid.Row="1" Grid.Column="1" Spacing="6">
+                <Slider Minimum="0" Maximum="9" TickFrequency="1"
+                        Value="{Binding Level, Mode=TwoWay}"
+                        IsSnapToTickEnabled="True"/>
+                <TextBlock Text="{Binding LevelLabel}"
+                           Foreground="{DynamicResource AppTextSecondaryBrush}" FontSize="12"/>
+            </StackPanel>
+        </Grid>
+    </StackPanel>
+</UserControl>

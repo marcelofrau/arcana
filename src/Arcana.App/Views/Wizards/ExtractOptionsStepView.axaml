@@ -1,0 +1,15 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vmw="using:Arcana.App.ViewModels.Wizard"
+             xmlns:l="using:Arcana.App.Localization"
+             x:Class="Arcana.App.Views.Wizards.ExtractOptionsStepView"
+             x:DataType="vmw:ExtractOptionsStep">
+    <StackPanel Spacing="16">
+        <CheckBox Content="{l:Loc Key=wizard.extract.overwrite}"
+                  IsChecked="{Binding Overwrite, Mode=TwoWay}"
+                  Foreground="{DynamicResource AppTextPrimaryBrush}"/>
+        <CheckBox Content="{l:Loc Key=wizard.extract.preserve}"
+                  IsChecked="{Binding PreserveStructure, Mode=TwoWay}"
+                  Foreground="{DynamicResource AppTextPrimaryBrush}"/>
+    </StackPanel>
+</UserControl>

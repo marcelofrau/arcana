@@ -1,0 +1,49 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vmw="using:Arcana.App.ViewModels.Wizard"
+             xmlns:l="using:Arcana.App.Localization"
+             xmlns:icons="using:Arcana.App.Icons"
+             x:Class="Arcana.App.Views.Wizards.CreateDestinationStepView"
+             x:DataType="vmw:CreateDestinationStep">
+    <StackPanel Spacing="14">
+        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10" RowDefinitions="Auto,Auto" RowSpacing="12">
+            <TextBlock Text="{l:Loc Key=wizard.create.pathLabel}" VerticalAlignment="Center"
+                       Foreground="{DynamicResource AppTextPrimaryBrush}"/>
+            <TextBox Grid.Column="1" Text="{Binding ArchivePath, Mode=TwoWay}"
+                     PlaceholderText="{l:Loc Key=wizard.create.pathWatermark}"
+                     Background="{DynamicResource AppBackgroundBrush}"
+                     Foreground="{DynamicResource AppTextPrimaryBrush}"
+                     BorderBrush="{DynamicResource AppBorderBrush}"
+                     Padding="6,4"/>
+            <Button Grid.Column="2" MinWidth="90" Classes="secondary"
+                    Click="OnBrowseClick">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <Image Width="14" Height="14" Stretch="Uniform"
+                           Tag="{x:Static icons:IconKey.Folder}"
+                           Source="{Binding Tag, RelativeSource={RelativeSource Self}, Converter={StaticResource IconToImage}}"/>
+                    <TextBlock Text="{l:Loc Key=common.browse}" VerticalAlignment="Center"/>
+                </StackPanel>
+            </Button>
+
+            <TextBlock Grid.Row="1" Text="{l:Loc Key=wizard.create.formatLabel}" VerticalAlignment="Center"
+                       Foreground="{DynamicResource AppTextPrimaryBrush}"/>
+            <ComboBox Grid.Row="1" Grid.Column="1"
+                      ItemsSource="{Binding Formats}"
+                      DisplayMemberBinding="{Binding Label}"
+                      SelectedItem="{Binding SelectedFormat, Mode=TwoWay}"/>
+        </Grid>
+
+        <StackPanel Spacing="6">
+            <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Text="{l:Loc Key=wizard.create.levelLabel}"
+                           Foreground="{DynamicResource AppTextPrimaryBrush}"/>
+                <TextBlock Grid.Column="1" Text="{Binding LevelLabel}"
+                           FontWeight="SemiBold"
+                           Foreground="{DynamicResource AppAccentBrush}"/>
+            </Grid>
+            <Slider Minimum="0" Maximum="9" TickFrequency="1"
+                    Value="{Binding Level, Mode=TwoWay}"
+                    IsSnapToTickEnabled="True"/>
+        </StackPanel>
+    </StackPanel>
+</UserControl>

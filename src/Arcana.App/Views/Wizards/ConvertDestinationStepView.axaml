@@ -1,0 +1,29 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vmw="using:Arcana.App.ViewModels.Wizard"
+             xmlns:l="using:Arcana.App.Localization"
+             xmlns:icons="using:Arcana.App.Icons"
+             x:Class="Arcana.App.Views.Wizards.ConvertDestinationStepView"
+             x:DataType="vmw:ConvertDestinationStep">
+    <StackPanel Spacing="14">
+        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+            <TextBlock Text="{l:Loc Key=wizard.convert.destLabel}" VerticalAlignment="Center"
+                       Foreground="{DynamicResource AppTextPrimaryBrush}"/>
+            <TextBox Grid.Column="1" Text="{Binding OutputPath, Mode=TwoWay}"
+                     PlaceholderText="{l:Loc Key=wizard.convert.destWatermark}"
+                     Background="{DynamicResource AppBackgroundBrush}"
+                     Foreground="{DynamicResource AppTextPrimaryBrush}"
+                     BorderBrush="{DynamicResource AppBorderBrush}"
+                     Padding="6,4"/>
+            <Button Grid.Column="2" MinWidth="90" Classes="secondary"
+                    Click="OnBrowseClick">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <Image Width="14" Height="14" Stretch="Uniform"
+                           Tag="{x:Static icons:IconKey.Folder}"
+                           Source="{Binding Tag, RelativeSource={RelativeSource Self}, Converter={StaticResource IconToImage}}"/>
+                    <TextBlock Text="{l:Loc Key=common.browse}" VerticalAlignment="Center"/>
+                </StackPanel>
+            </Button>
+        </Grid>
+    </StackPanel>
+</UserControl>

@@ -1,0 +1,44 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vmw="using:Arcana.App.ViewModels.Wizard"
+             xmlns:l="using:Arcana.App.Localization"
+             xmlns:icons="using:Arcana.App.Icons"
+             x:Class="Arcana.App.Views.Wizards.CreateFilesStepView"
+             x:DataType="vmw:CreateFilesStep">
+    <DockPanel>
+        <Button DockPanel.Dock="Top" HorizontalAlignment="Left" MinWidth="120" Classes="secondary"
+                Click="OnAddFilesClick">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+                <Image Width="14" Height="14" Stretch="Uniform"
+                       Tag="{x:Static icons:IconKey.Add}"
+                       Source="{Binding Tag, RelativeSource={RelativeSource Self}, Converter={StaticResource IconToImage}}"/>
+                <TextBlock Text="{l:Loc Key=wizard.create.addFiles}" VerticalAlignment="Center"/>
+            </StackPanel>
+        </Button>
+        <ListBox Margin="0,12,0,0"
+                 ItemsSource="{Binding Files}"
+                 SelectionMode="Single"
+                 Background="{DynamicResource AppSurfaceBrush}"
+                 BorderBrush="{DynamicResource AppBorderBrush}"
+                 BorderThickness="1">
+            <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="vmw:FileItem">
+                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8" Margin="4,2">
+                        <TextBlock Text="{Binding Name}" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource AppTextPrimaryBrush}"/>
+                        <TextBlock Grid.Column="1" Text="{Binding Path}" VerticalAlignment="Center"
+                                   TextTrimming="CharacterEllipsis" FontSize="12"
+                                   Foreground="{DynamicResource AppTextSecondaryBrush}"/>
+                        <Button Grid.Column="2" FontSize="10" Padding="6,1"
+                                Command="{Binding $parent[ListBox].((vmw:CreateFilesStep)DataContext).RemoveCommand}"
+                                CommandParameter="{Binding}">
+                            <Image Width="12" Height="12" Stretch="Uniform"
+                                   Tag="{x:Static icons:IconKey.Close}"
+                                   Source="{Binding Tag, RelativeSource={RelativeSource Self}, Converter={StaticResource IconToImage}}"/>
+                        </Button>
+                    </Grid>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+    </DockPanel>
+</UserControl>
