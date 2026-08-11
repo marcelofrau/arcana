@@ -52,6 +52,13 @@ public sealed class DefaultIconProvider : IIconProvider
             [IconKey.Join] = "M17 20.41L18.41 19 15 15.59 13.59 17 17 20.41zM7.5 8H11v5.59L5.59 19 7 20.41l6-6V8h3.5L12 3.5 7.5 8z",
             [IconKey.Hash] = "M1 6h2v12H1V6zm4 0h2v12H5V6zm4 0h3v12H9V6zm5 0h1v12h-1V6zm3 0h2v12h-2V6zm3 0h1v12h-1V6z",
             [IconKey.Optimize] = "M19 12h-1V4h-2v8h-1l3 4 3-4h-1V4h-2v8zM12 4H5v6h7v2l4-5-4-5v2zm0 12H5v6h7v2l4-5-4-5v2z",
+            [IconKey.Check] = "M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z",
+            [IconKey.ArrowBack] = "M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z",
+            [IconKey.ArrowForward] = "M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z",
+            [IconKey.Copy] = "M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z",
+            [IconKey.Refresh] = "M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z",
+            [IconKey.Play] = "M8 5v14l11-7z",
+            [IconKey.Warning] = "M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z",
         };
 
     private readonly Dictionary<IconKey, DrawingImage> _cache = new();

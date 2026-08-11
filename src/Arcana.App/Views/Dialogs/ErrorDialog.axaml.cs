@@ -1,5 +1,4 @@
 using Avalonia.Controls;
-using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 
 namespace Arcana.App.Views.Dialogs;
@@ -22,12 +21,6 @@ public partial class ErrorDialog : Window
 
     public void SetDetails(string text) => DetailsBox.Text = text;
 
-    private void OnCopyClick(object? sender, RoutedEventArgs e)
-    {
-        if (!string.IsNullOrEmpty(DetailsBox.Text))
-            Clipboard?.SetTextAsync(DetailsBox.Text);
-    }
-
     private void OnRestartClick(object? sender, RoutedEventArgs e)
     {
         Result = ErrorDialogResult.Restart;
@@ -40,7 +33,7 @@ public partial class ErrorDialog : Window
         Close(Result);
     }
 
-    private void OnCloseClick(object? sender, RoutedEventArgs e)
+    private void OnExitClick(object? sender, RoutedEventArgs e)
     {
         Result = ErrorDialogResult.Close;
         Close(Result);

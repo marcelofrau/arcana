@@ -10,11 +10,13 @@ namespace Arcana.App.Services;
 
 /// <summary>
 /// Global unhandled-exception handlers. Instead of letting the app die silently,
-/// a modal error dialog shows the copyable exception and offers Restart / Continue / Close.
+/// a modal error dialog shows the copyable exception and offers Exit / Restart / Continue.
 /// </summary>
 public static class GlobalExceptionHandler
 {
     private static readonly ILogger Log = Serilog.Log.ForContext(typeof(GlobalExceptionHandler));
+
+    private static int _dialogShowing;
 
     public static void Attach()
     {
@@ -30,12 +32,12 @@ public static class GlobalExceptionHandler
         Log.Fatal(ex, "Unhandled app-domain exception");
         if (Dispatcher.UIThread.CheckAccess())
         {
-            _ = ShowAndApplyAsync(ex, exitOnClose: true);
+            _ = ShowAndApplyAsync(ex);
         }
         else
         {
             var result = Dispatcher.UIThread.InvokeAsync(() => ShowDialogAsync(ex)).GetAwaiter().GetResult();
-            ApplyResult(result, exitOnClose: true);
+            ApplyResult(result);
         }
     }
 
@@ -45,12 +47,12 @@ public static class GlobalExceptionHandler
         Log.Error(e.Exception, "Unobserved task exception");
         if (Dispatcher.UIThread.CheckAccess())
         {
-            _ = ShowAndApplyAsync(e.Exception, exitOnClose: false);
+            _ = ShowAndApplyAsync(e.Exception);
         }
         else
         {
             var result = Dispatcher.UIThread.InvokeAsync(() => ShowDialogAsync(e.Exception)).GetAwaiter().GetResult();
-            ApplyResult(result, exitOnClose: false);
+            ApplyResult(result);
         }
     }
 
@@ -58,33 +60,47 @@ public static class GlobalExceptionHandler
     {
         Log.Error(e.Exception, "Unhandled dispatcher exception");
         e.Handled = true;
-        _ = ShowAndApplyAsync(e.Exception, exitOnClose: false);
+        _ = ShowAndApplyAsync(e.Exception);
     }
 
-    private static async Task ShowAndApplyAsync(Exception exception, bool exitOnClose)
+    private static async Task ShowAndApplyAsync(Exception exception)
     {
         var result = await ShowDialogAsync(exception);
-        ApplyResult(result, exitOnClose);
+        ApplyResult(result);
     }
 
     private static async Task<ErrorDialogResult> ShowDialogAsync(Exception exception)
     {
-        var owner = Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop
-            ? desktop.MainWindow
-            : null;
+        // Re-entrancy guard: if an error dialog is already up, don't stack another.
+        if (Interlocked.Exchange(ref _dialogShowing, 1) != 0)
+        {
+            Log.Warning("Error dialog already showing; skipping {Type}", exception.GetType().Name);
+            return ErrorDialogResult.Continue;
+        }
 
-        var dialog = new ErrorDialog();
-        dialog.SetDetails(exception.ToString());
-        if (owner != null)
-            return await dialog.ShowDialog<ErrorDialogResult>(owner);
+        try
+        {
+            var owner = Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop
+                ? desktop.MainWindow
+                : null;
 
-        var tcs = new TaskCompletionSource<ErrorDialogResult>();
-        dialog.Closed += (_, _) => tcs.TrySetResult(dialog.Result);
-        dialog.Show();
-        return await tcs.Task;
+            var dialog = new ErrorDialog();
+            dialog.SetDetails(exception.ToString());
+            if (owner != null)
+                return await ModalHost.ShowAsync<ErrorDialogResult>(owner, dialog);
+
+            var tcs = new TaskCompletionSource<ErrorDialogResult>();
+            dialog.Closed += (_, _) => tcs.TrySetResult(dialog.Result);
+            dialog.Show();
+            return await tcs.Task;
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _dialogShowing, 0);
+        }
     }
 
-    private static void ApplyResult(ErrorDialogResult result, bool exitOnClose)
+    private static void ApplyResult(ErrorDialogResult result)
     {
         switch (result)
         {
@@ -93,8 +109,7 @@ public static class GlobalExceptionHandler
                 Environment.Exit(1);
                 break;
             case ErrorDialogResult.Close:
-                if (exitOnClose)
-                    Environment.Exit(0);
+                Environment.Exit(0);
                 break;
         }
     }

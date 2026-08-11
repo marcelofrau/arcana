@@ -34,4 +34,11 @@ public enum IconKey
     Join,
     Hash,
     Optimize,
+    Check,
+    ArrowBack,
+    ArrowForward,
+    Copy,
+    Refresh,
+    Play,
+    Warning,
 }
