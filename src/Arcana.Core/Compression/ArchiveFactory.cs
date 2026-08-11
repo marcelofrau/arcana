@@ -30,6 +30,7 @@ public static class ArchiveFactory
             CompressionFormat.BZip2 => new Formats.BZip2Engine(),
             CompressionFormat.GZip => new Formats.GzipEngine(),
             CompressionFormat.Snappy => new Formats.SnappyEngine(),
+            CompressionFormat.Iso => new Formats.IsoEngine(),
             _ => throw new ArgumentOutOfRangeException(nameof(format), format, null)
         };
         Log.Debug("Resolved {CompressionFormat} engine", format);
@@ -60,6 +61,7 @@ public static class ArchiveFactory
             ".br" => GetFormat(CompressionFormat.Brotli),
             ".lz4" => GetFormat(CompressionFormat.Lz4),
             ".snappy" => GetFormat(CompressionFormat.Snappy),
+            ".iso" => GetFormat(CompressionFormat.Iso),
             _ => new Formats.HawkyntFallbackEngine()
         };
         Log.Debug("Extension {Extension} -> {EngineName}", extension, engine.Name);
@@ -68,6 +70,9 @@ public static class ArchiveFactory
 
     public static IArchiveFormat GetFormatFromFileHeader(Stream stream)
     {
+        if (IsIso9660(stream))
+            return GetFormat(CompressionFormat.Iso);
+
         var header = new byte[8];
         var read = stream.Read(header, 0, 8);
         stream.Seek(-read, SeekOrigin.Current);
@@ -116,6 +121,29 @@ public static class ArchiveFactory
         finally
         {
             stream.Seek(pos, SeekOrigin.Begin);
+        }
+    }
+
+    private static bool IsIso9660(Stream stream)
+    {
+        if (!stream.CanSeek || stream.Length < 0x8000 + 8)
+            return false;
+
+        var pos = stream.Position;
+        try
+        {
+            var buffer = new byte[8];
+            stream.Seek(0x8000, SeekOrigin.Begin);
+            if (stream.Read(buffer, 0, buffer.Length) < buffer.Length)
+                return false;
+            return buffer[0] == 1
+                && buffer[1] == (byte)'C' && buffer[2] == (byte)'D'
+                && buffer[3] == (byte)'0' && buffer[4] == (byte)'0'
+                && buffer[5] == (byte)'1' && buffer[6] == 1;
+        }
+        finally
+        {
+            stream.Position = pos;
         }
     }
 

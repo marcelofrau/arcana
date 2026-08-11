@@ -11,4 +11,8 @@ public class ProgressReport
     public string? CurrentOperation { get; init; }
     public TimeSpan Elapsed { get; init; }
     public TimeSpan? EstimatedRemaining { get; init; }
+
+    /// <summary>Bytes written to the (compressed) output stream so far. Only reported
+    /// by write-side streams; drives the live compression-ratio chart.</summary>
+    public long CompressedBytes { get; init; }
 }

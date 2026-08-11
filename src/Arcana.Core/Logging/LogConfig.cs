@@ -17,11 +17,11 @@ public static class LogConfig
         var logFile = Path.Combine(LogDirectory, "arcana-.log");
         Log.Logger = new LoggerConfiguration()
             .MinimumLevel.ControlledBy(LevelSwitch)
-            .WriteTo.Console(outputTemplate: "[{Level:u3}] {Message:lj}{NewLine}{Exception}")
+            .WriteTo.Console(outputTemplate: "[{Timestamp:HH:mm:ss.fff} {Level:u3}] {Message:lj}{NewLine}{Exception}")
             .WriteTo.File(
                 logFile,
                 rollingInterval: RollingInterval.Day,
-                outputTemplate: "[{Timestamp:yyyy-MM-dd HH:mm:ss} {Level:u3}] {Message:lj}{NewLine}{Exception}")
+                outputTemplate: "[{Timestamp:yyyy-MM-dd HH:mm:ss.fff} {Level:u3}] {Message:lj}{NewLine}{Exception}")
             .CreateLogger();
         Log.Information("Arcana logging initialized (file {LogFile})", logFile);
     }

@@ -23,8 +23,11 @@ public class VirtualFileSystem : IDisposable
     public bool HasDirtyNodes => GetDirtyNodes().Count > 0;
 
     public ArchiveNode AddFile(string path, Stream content)
+        => AddLazyFile(path, () => content, ownsContent: false);
+
+    public ArchiveNode AddLazyFile(string path, Func<Stream> contentFactory, bool ownsContent = true)
     {
-        _log.Verbose("AddFile {Path}", path);
+        _log.Verbose("AddLazyFile {Path}", path);
         var parent = EnsureDirectory(Path.GetDirectoryName(path) ?? "");
         var name = Path.GetFileName(path);
         var node = new ArchiveNode
@@ -34,7 +37,8 @@ public class VirtualFileSystem : IDisposable
             Type = NodeType.File,
             Parent = parent,
             LastModified = DateTime.UtcNow,
-            ContentFactory = () => content
+            ContentFactory = contentFactory,
+            OwnsContent = ownsContent,
         };
         parent.Children.Add(node);
         return node;

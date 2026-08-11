@@ -34,6 +34,11 @@ public class HawkyntFallbackEngine : IArchiveFormat
 
             _log.Debug("Detected format via descriptor {DescriptorId}", descriptor.Id);
             var ops = FormatRegistry.GetArchiveOps(descriptor.Id);
+            if (ops == null)
+            {
+                _log.Error("No archive operations registered for format {DescriptorId}", descriptor.Id);
+                throw new NotSupportedException($"No archive operations registered for format '{descriptor.Id}'");
+            }
             var entries = ops.List(stream, Password);
 
             var result = new List<ArchiveEntry>();

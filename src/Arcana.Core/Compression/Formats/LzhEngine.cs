@@ -29,6 +29,11 @@ public class LzhEngine : IArchiveFormat
             var descriptorId = descriptor?.Id ?? "Lzh";
             _log.Debug("Detected format via descriptor {DescriptorId}", descriptorId);
             var ops = FormatRegistry.GetArchiveOps(descriptorId);
+            if (ops == null)
+            {
+                _log.Error("No archive operations registered for format {DescriptorId}", descriptorId);
+                throw new NotSupportedException($"No archive operations registered for format '{descriptorId}'");
+            }
             var entries = ops.List(stream, Password);
 
             var result = new List<ArchiveEntry>();

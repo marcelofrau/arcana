@@ -22,5 +22,6 @@ public enum CompressionFormat
     Cab,
     Lzh,
     Hawkynt,
-    Snappy
+    Snappy,
+    Iso
 }
