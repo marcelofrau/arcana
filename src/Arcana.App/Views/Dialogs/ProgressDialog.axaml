@@ -1,0 +1,228 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Arcana.App.ViewModels"
+        xmlns:controls="using:Arcana.App.Controls"
+        xmlns:l="using:Arcana.App.Localization"
+        xmlns:icons="using:Arcana.App.Icons"
+        x:Class="Arcana.App.Views.Dialogs.ProgressDialog"
+        x:DataType="vm:ProgressViewModel"
+        Width="580"
+        SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        ShowInTaskbar="False"
+        Background="{DynamicResource AppSurfaceLowBrush}"
+        Title="{Binding Title}">
+    <Grid ClipToBounds="True">
+        <!-- Ambient glow orbs -->
+        <Ellipse Width="420" Height="300" HorizontalAlignment="Center" VerticalAlignment="Top"
+                 Margin="0,-190,0,0" IsHitTestVisible="False">
+            <Ellipse.Fill>
+                <RadialGradientBrush>
+                    <GradientStop Offset="0" Color="{DynamicResource AppAccentGlowInner}"/>
+                    <GradientStop Offset="1" Color="{DynamicResource AppAccentGlowOuter}"/>
+                </RadialGradientBrush>
+            </Ellipse.Fill>
+            <Ellipse.Effect>
+                <BlurEffect Radius="55"/>
+            </Ellipse.Effect>
+        </Ellipse>
+
+        <Ellipse Width="440" Height="260" HorizontalAlignment="Center" VerticalAlignment="Bottom"
+                 Margin="0,0,0,-150" IsHitTestVisible="False">
+            <Ellipse.Fill>
+                <RadialGradientBrush>
+                    <GradientStop Offset="0" Color="{DynamicResource AppAccentGlowInner}"/>
+                    <GradientStop Offset="1" Color="{DynamicResource AppAccentGlowOuter}"/>
+                </RadialGradientBrush>
+            </Ellipse.Fill>
+            <Ellipse.Effect>
+                <BlurEffect Radius="50"/>
+            </Ellipse.Effect>
+        </Ellipse>
+
+        <DockPanel Margin="26,22">
+            <!-- Header: operation icon + title + cancel X (Windows-copy style) -->
+            <Grid DockPanel.Dock="Top" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="14">
+                <Border Width="44" Height="44" CornerRadius="12" VerticalAlignment="Top"
+                        Background="{DynamicResource AppChipBg}" BorderBrush="{DynamicResource AppChipBorder}" BorderThickness="1">
+                    <Image Width="22" Height="22" Stretch="Uniform"
+                           Tag="{Binding HeaderIcon}"
+                           Source="{Binding Tag, RelativeSource={RelativeSource Self}, Converter={StaticResource IconToImage}}"/>
+                </Border>
+                <StackPanel Grid.Column="1" Spacing="3">
+                    <TextBlock Text="{Binding Title}"
+                               FontSize="16" FontWeight="SemiBold"
+                               TextTrimming="CharacterEllipsis"
+                               Foreground="{DynamicResource AppTextPrimaryBrush}"/>
+                    <TextBlock Text="{Binding OverallText}"
+                               FontSize="12" TextTrimming="CharacterEllipsis"
+                               Foreground="{DynamicResource AppTextSecondaryBrush}"/>
+                </StackPanel>
+                <Button Grid.Column="2" Width="30" Height="30" Padding="0"
+                        VerticalAlignment="Top"
+                        Background="Transparent" BorderThickness="0"
+                        Click="OnCancelClick"
+                        ToolTip.Tip="{l:Loc Key=common.cancel}">
+                    <Image Width="14" Height="14" Stretch="Uniform"
+                           Tag="{x:Static icons:IconKey.Close}"
+                           Source="{Binding Tag, RelativeSource={RelativeSource Self}, Converter={StaticResource IconToImage}}"/>
+                </Button>
+            </Grid>
+
+            <!-- Body -->
+            <StackPanel DockPanel.Dock="Top" Spacing="14" Margin="0,20,0,0">
+                <!-- WinRAR big percent + overall bar -->
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="18">
+                    <TextBlock Text="{Binding OverallPercent, StringFormat={}{0:0}%}"
+                               MinWidth="96" HorizontalAlignment="Left"
+                               FontSize="42" FontWeight="SemiBold"
+                               Foreground="{DynamicResource AppAccentBrush}"/>
+                    <StackPanel Grid.Column="1" Spacing="5" VerticalAlignment="Center">
+                        <ProgressBar Value="{Binding OverallPercent}"
+                                     Minimum="0" Maximum="100"
+                                     Height="10" CornerRadius="5"
+                                     Background="{DynamicResource AppSurfaceLowBrush}">
+                            <ProgressBar.Foreground>
+                                <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                    <GradientStop Offset="0" Color="{DynamicResource AppAccentHover}"/>
+                                    <GradientStop Offset="1" Color="{DynamicResource AppAccent}"/>
+                                </LinearGradientBrush>
+                            </ProgressBar.Foreground>
+                        </ProgressBar>
+                        <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding HasSizeText}">
+                            <TextBlock Text="{Binding SizeText}"
+                                       FontSize="12"
+                                       Foreground="{DynamicResource AppTextSecondaryBrush}"/>
+                            <TextBlock Grid.Column="1"
+                                       Text="{Binding OverallPercent, StringFormat={}{0:0}%}"
+                                       FontSize="12"
+                                       Foreground="{DynamicResource AppTextPrimaryBrush}"/>
+                        </Grid>
+                    </StackPanel>
+                </Grid>
+
+                <!-- Current file (Windows-copy style) -->
+                <Border CornerRadius="10" Padding="12"
+                        Background="{DynamicResource AppSurfaceRaisedBrush}"
+                        BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1"
+                        IsVisible="{Binding HasFileProgress}">
+                    <StackPanel Spacing="7">
+                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+                            <Image Width="15" Height="15" Stretch="Uniform"
+                                   Tag="{x:Static icons:IconKey.FileGeneric}"
+                                   Source="{Binding Tag, RelativeSource={RelativeSource Self}, Converter={StaticResource IconToImage}}"/>
+                            <TextBlock Grid.Column="1" Text="{Binding CurrentFile}"
+                                       FontSize="12" TextTrimming="CharacterEllipsis"
+                                       VerticalAlignment="Center"
+                                       Foreground="{DynamicResource AppTextPrimaryBrush}"/>
+                            <TextBlock Grid.Column="2"
+                                       Text="{Binding FilePercent, StringFormat={}{0:0}%}"
+                                       FontSize="12" FontWeight="SemiBold"
+                                       VerticalAlignment="Center"
+                                       Foreground="{DynamicResource AppAccentBrush}"/>
+                        </Grid>
+                        <ProgressBar Value="{Binding FilePercent}"
+                                     Minimum="0" Maximum="100"
+                                     Height="4" CornerRadius="2"
+                                     Foreground="{DynamicResource AppAccentBrush}"
+                                     Background="{DynamicResource AppSurfaceLowBrush}"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Speed graph (DownThemAll style) -->
+                <Border CornerRadius="10" Padding="12"
+                        Background="{DynamicResource AppSurfaceRaisedBrush}"
+                        BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1">
+                    <StackPanel Spacing="6">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Text="{l:Loc Key=progress.speed}"
+                                       FontSize="11" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource AppTextSecondaryBrush}"/>
+                            <TextBlock Grid.Column="1" Text="{Binding SpeedText}"
+                                       FontSize="13" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource AppAccentBrush}"/>
+                        </Grid>
+                        <controls:SpeedChart Height="84"
+                                             Samples="{Binding SpeedSamples}"
+                                             LineBrush="{DynamicResource AppAccentBrush}"
+                                             TextBrush="{DynamicResource AppTextSecondaryBrush}"
+                                             GridBrush="{DynamicResource AppDividerBrush}"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Compression ratio (compress operations only) -->
+                <Border CornerRadius="10" Padding="12"
+                        Background="{DynamicResource AppSurfaceRaisedBrush}"
+                        BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1"
+                        IsVisible="{Binding ShowChart}">
+                    <StackPanel Spacing="6">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Text="{l:Loc Key=progress.ratioTitle}"
+                                       FontSize="11" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource AppTextSecondaryBrush}"/>
+                            <TextBlock Grid.Column="1" Text="{Binding RatioText}"
+                                       FontSize="13" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource AppAccentBrush}"/>
+                        </Grid>
+                        <controls:RatioChart Height="52"
+                                             Samples="{Binding RatioSamples}"
+                                             LineBrush="{DynamicResource AppAccentBrush}"
+                                             FillBrush="{DynamicResource AppAccentDimBrush}"
+                                             TextBrush="{DynamicResource AppTextSecondaryBrush}"
+                                             GridBrush="{DynamicResource AppDividerBrush}"/>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+
+            <!-- Footer: stat tiles + cancel -->
+            <Border DockPanel.Dock="Bottom" Margin="0,16,0,0" Padding="0,14,0,0"
+                    BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0,1,0,0">
+                <StackPanel Spacing="14">
+                    <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8">
+                        <Border CornerRadius="8" Padding="10,8"
+                                Background="{DynamicResource AppSurfaceRaisedBrush}"
+                                BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1">
+                            <StackPanel Spacing="2">
+                                <TextBlock Text="{l:Loc Key=progress.speed}" FontSize="11"
+                                           Foreground="{DynamicResource AppTextSecondaryBrush}"/>
+                                <TextBlock Text="{Binding SpeedText}" FontSize="13" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource AppTextPrimaryBrush}"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Grid.Column="1" CornerRadius="8" Padding="10,8"
+                                Background="{DynamicResource AppSurfaceRaisedBrush}"
+                                BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1">
+                            <StackPanel Spacing="2">
+                                <TextBlock Text="{l:Loc Key=progress.elapsed}" FontSize="11"
+                                           Foreground="{DynamicResource AppTextSecondaryBrush}"/>
+                                <TextBlock Text="{Binding ElapsedText}" FontSize="13" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource AppTextPrimaryBrush}"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Grid.Column="2" CornerRadius="8" Padding="10,8"
+                                Background="{DynamicResource AppSurfaceRaisedBrush}"
+                                BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1">
+                            <StackPanel Spacing="2">
+                                <TextBlock Text="{l:Loc Key=progress.remaining}" FontSize="11"
+                                           Foreground="{DynamicResource AppTextSecondaryBrush}"/>
+                                <TextBlock Text="{Binding RemainingText}" FontSize="13" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource AppTextPrimaryBrush}"/>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                    <Button MinWidth="100" Classes="secondary" HorizontalAlignment="Right"
+                            Command="{Binding CancelCommand}"
+                            Click="OnCancelClick">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <Image Width="14" Height="14" Stretch="Uniform"
+                                   Tag="{x:Static icons:IconKey.Close}"
+                                   Source="{Binding Tag, RelativeSource={RelativeSource Self}, Converter={StaticResource IconToImage}}"/>
+                            <TextBlock Text="{l:Loc Key=common.cancel}" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </Border>
+        </DockPanel>
+    </Grid>
+</Window>

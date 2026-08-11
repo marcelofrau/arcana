@@ -1,0 +1,110 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Arcana.App.ViewModels"
+        xmlns:svc="using:Arcana.App.Services"
+        xmlns:l="using:Arcana.App.Localization"
+        xmlns:icons="using:Arcana.App.Icons"
+        x:Class="Arcana.App.Views.Dialogs.ExtractCompleteDialog"
+        x:DataType="vm:ExtractCompleteViewModel"
+        Width="520"
+        MaxHeight="640"
+        SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        ShowInTaskbar="False"
+        Background="{DynamicResource AppSurfaceLowBrush}"
+        Title="{Binding Title}">
+    <Grid ClipToBounds="True">
+        <!-- Ambient glow orbs -->
+        <Ellipse Width="420" Height="300" HorizontalAlignment="Center" VerticalAlignment="Top"
+                 Margin="0,-190,0,0" IsHitTestVisible="False">
+            <Ellipse.Fill>
+                <RadialGradientBrush>
+                    <GradientStop Offset="0" Color="{DynamicResource AppAccentGlowInner}"/>
+                    <GradientStop Offset="1" Color="{DynamicResource AppAccentGlowOuter}"/>
+                </RadialGradientBrush>
+            </Ellipse.Fill>
+            <Ellipse.Effect>
+                <BlurEffect Radius="55"/>
+            </Ellipse.Effect>
+        </Ellipse>
+
+        <StackPanel Margin="24,22" Spacing="16">
+            <!-- Header: icon + title + summary -->
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="14">
+                <Border Width="44" Height="44" CornerRadius="12" VerticalAlignment="Top"
+                        Background="{DynamicResource AppChipBg}" BorderBrush="{DynamicResource AppChipBorder}" BorderThickness="1">
+                    <Image Width="22" Height="22" Stretch="Uniform"
+                           Tag="{x:Static icons:IconKey.Extract}"
+                           Source="{Binding Tag, RelativeSource={RelativeSource Self}, Converter={StaticResource IconToImage}}"/>
+                </Border>
+                <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding Title}"
+                               FontSize="16" FontWeight="SemiBold"
+                               TextTrimming="CharacterEllipsis"
+                               Foreground="{DynamicResource AppTextPrimaryBrush}"/>
+                    <TextBlock Text="{Binding Summary}"
+                               TextWrapping="Wrap" FontSize="13"
+                               Foreground="{DynamicResource AppTextSecondaryBrush}"/>
+                </StackPanel>
+            </Grid>
+
+            <!-- Extracted file list card -->
+            <Border CornerRadius="10" Padding="12"
+                    Background="{DynamicResource AppSurfaceRaisedBrush}"
+                    BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1"
+                    IsVisible="{Binding HasFiles}">
+                <StackPanel Spacing="8">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock Text="{l:Loc Key=msg.extractFilesTitle}"
+                                   FontSize="11" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource AppTextSecondaryBrush}"/>
+                        <TextBlock Grid.Column="1" Text="{Binding Files.Count}"
+                                   FontSize="11" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource AppAccentBrush}"/>
+                    </Grid>
+                    <ScrollViewer MaxHeight="200" HorizontalScrollBarVisibility="Auto">
+                        <ItemsControl ItemsSource="{Binding Files}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="svc:ExtractedFile">
+                                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                                        <Border CornerRadius="6" Padding="7,2" VerticalAlignment="Center"
+                                                Background="{Binding Status, Converter={StaticResource ExtractStatusBrush}}">
+                                            <TextBlock Text="{Binding Status, Converter={StaticResource ExtractStatusText}}"
+                                                       FontSize="10" FontWeight="SemiBold" Foreground="White"/>
+                                        </Border>
+                                        <TextBlock Grid.Column="1" Text="{Binding RelativePath}" FontSize="11"
+                                                   TextTrimming="CharacterEllipsis" Margin="0,1" VerticalAlignment="Center"
+                                                   Foreground="{DynamicResource AppTextPrimaryBrush}"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </StackPanel>
+            </Border>
+
+            <!-- Actions -->
+            <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" Spacing="8">
+                <Button MinWidth="110" Classes="accent"
+                        Click="OnOpenFolderClick">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <Image Width="14" Height="14" Stretch="Uniform"
+                               Tag="{x:Static icons:IconKey.Folder}"
+                               Source="{Binding Tag, RelativeSource={RelativeSource Self}, Converter={StaticResource IconToImage}}"/>
+                        <TextBlock Text="{l:Loc Key=msg.openFolder}" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
+                <Button MinWidth="90" Classes="secondary"
+                        Click="OnOkClick">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <Image Width="14" Height="14" Stretch="Uniform"
+                               Tag="{x:Static icons:IconKey.Check}"
+                               Source="{Binding Tag, RelativeSource={RelativeSource Self}, Converter={StaticResource IconToImage}}"/>
+                        <TextBlock Text="{l:Loc Key=common.ok}" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+        </StackPanel>
+    </Grid>
+</Window>
