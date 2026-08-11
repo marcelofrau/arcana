@@ -1,0 +1,127 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Arcana.App.ViewModels"
+        xmlns:l="using:Arcana.App.Localization"
+        xmlns:icons="using:Arcana.App.Icons"
+        xmlns:controls="using:Arcana.App.Controls"
+        x:Class="Arcana.App.Views.Dialogs.PropertiesDialog"
+        x:DataType="vm:PropertiesViewModel"
+        Width="640"
+        MaxHeight="620"
+        SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        ShowInTaskbar="False"
+        Background="{DynamicResource AppSurfaceLowBrush}"
+        Title="{Binding Title}">
+    <Grid ClipToBounds="True">
+        <!-- Ambient glow orbs -->
+        <Ellipse Width="460" Height="320" HorizontalAlignment="Center" VerticalAlignment="Top"
+                 Margin="0,-200,0,0" IsHitTestVisible="False">
+            <Ellipse.Fill>
+                <RadialGradientBrush>
+                    <GradientStop Offset="0" Color="{DynamicResource AppAccentGlowInner}"/>
+                    <GradientStop Offset="1" Color="{DynamicResource AppAccentGlowOuter}"/>
+                </RadialGradientBrush>
+            </Ellipse.Fill>
+            <Ellipse.Effect>
+                <BlurEffect Radius="55"/>
+            </Ellipse.Effect>
+        </Ellipse>
+
+        <StackPanel Margin="24,22" Spacing="16">
+            <!-- Header: icon + title + description -->
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="14">
+                <Border Width="46" Height="46" CornerRadius="13" VerticalAlignment="Top"
+                        Background="{DynamicResource AppChipBg}"
+                        BorderBrush="{DynamicResource AppChipBorder}" BorderThickness="1">
+                    <Image Width="23" Height="23" Stretch="Uniform"
+                           Tag="{Binding Icon}"
+                           Source="{Binding Tag, RelativeSource={RelativeSource Self}, Converter={StaticResource IconToImage}}"/>
+                </Border>
+                <StackPanel Grid.Column="1" Spacing="3" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding Title}"
+                               FontSize="17" FontWeight="SemiBold"
+                               TextTrimming="CharacterEllipsis"
+                               Foreground="{DynamicResource AppTextPrimaryBrush}"/>
+                    <TextBlock Text="{Binding Description}"
+                               FontSize="12" TextWrapping="Wrap"
+                               Foreground="{DynamicResource AppTextSecondaryBrush}"/>
+                </StackPanel>
+            </Grid>
+
+            <Grid ColumnDefinitions="168,20,*">
+                <!-- WinACE-style cylinder: how full the "pot" of compressed data is -->
+                <StackPanel Grid.Column="0" HorizontalAlignment="Center" Spacing="6">
+                    <controls:CylinderChart Width="150" Height="215"
+                                            FilledRatio="{Binding Ratio}"
+                                            FillBrush="{DynamicResource AppAccentBrush}"
+                                            RimBrush="{DynamicResource AppBorderBrush}"
+                                            TextBrush="{DynamicResource AppTextPrimaryBrush}"/>
+                    <StackPanel Spacing="3" HorizontalAlignment="Center">
+                        <Grid ColumnDefinitions="10,*" ColumnSpacing="6">
+                            <Border Width="10" Height="10" CornerRadius="3" VerticalAlignment="Center"
+                                    Background="{DynamicResource AppAccentBrush}"/>
+                            <StackPanel Grid.Column="1">
+                                <TextBlock Text="{l:Loc Key=props.compressed}" FontSize="10"
+                                           Foreground="{DynamicResource AppTextSecondaryBrush}"/>
+                                <TextBlock Text="{Binding CompressedText}"
+                                           FontSize="11" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource AppTextPrimaryBrush}"/>
+                            </StackPanel>
+                        </Grid>
+                        <Grid ColumnDefinitions="10,*" ColumnSpacing="6">
+                            <Border Width="10" Height="10" CornerRadius="3" VerticalAlignment="Center"
+                                    Background="{DynamicResource AppChipBorder}"/>
+                            <StackPanel Grid.Column="1">
+                                <TextBlock Text="{l:Loc Key=props.original}" FontSize="10"
+                                           Foreground="{DynamicResource AppTextSecondaryBrush}"/>
+                                <TextBlock Text="{Binding OriginalText}"
+                                           FontSize="11" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource AppTextPrimaryBrush}"/>
+                            </StackPanel>
+                        </Grid>
+                        <TextBlock FontSize="11" FontWeight="Bold" Margin="0,3,0,0"
+                                   HorizontalAlignment="Center"
+                                   Foreground="{DynamicResource AppSuccessBrush}">
+                            <Run Text="{l:Loc Key=props.savings}"/><Run Text="  "/><Run Text="{Binding SavingsRatio, StringFormat='{}{0:P0}'}"/>
+                        </TextBlock>
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- Property list card -->
+                <Border Grid.Column="2" CornerRadius="10" Padding="14"
+                        Background="{DynamicResource AppSurfaceRaisedBrush}"
+                        BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1"
+                        VerticalAlignment="Stretch">
+                    <ItemsControl ItemsSource="{Binding Rows}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:PropertyRow">
+                                <Grid ColumnDefinitions="110,*" ColumnSpacing="10" Margin="0,3">
+                                    <TextBlock Text="{Binding Label}" FontSize="12"
+                                               TextWrapping="Wrap"
+                                               Foreground="{DynamicResource AppTextSecondaryBrush}"/>
+                                    <TextBlock Grid.Column="1" Text="{Binding Value}" FontSize="12"
+                                               TextWrapping="Wrap" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource AppTextPrimaryBrush}"/>
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </Border>
+            </Grid>
+
+            <!-- Actions -->
+            <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" Spacing="8">
+                <Button MinWidth="90" Classes="accent" Click="OnOkClick">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <Image Width="14" Height="14" Stretch="Uniform"
+                               Tag="{x:Static icons:IconKey.Check}"
+                               Source="{Binding Tag, RelativeSource={RelativeSource Self}, Converter={StaticResource IconToImage}}"/>
+                        <TextBlock Text="{l:Loc Key=common.ok}" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+        </StackPanel>
+    </Grid>
+</Window>

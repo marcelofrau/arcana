@@ -992,14 +992,29 @@ public partial class MainViewModel : ObservableObject
 
         var n = item.Node;
         var type = n.Type == NodeType.Directory ? T("msg.typeFolder") : T("msg.typeFile");
-        var message =
-            $"{T("msg.propertyName")}  {n.FullPath}\n" +
-            $"{T("msg.propertyType")}  {type}\n" +
-            $"{T("msg.propertySize")}  {ByteFormat.Format(n.OriginalSize)}\n" +
-            $"{T("msg.propertyPacked")}  {ByteFormat.Format(n.CompressedSize)}\n" +
-            $"{T("msg.propertyModified")} {n.LastModified:yyyy-MM-dd HH:mm:ss}";
+        var ratio = n.OriginalSize > 0 ? n.CompressedSize / (double)n.OriginalSize : 1;
+        var rows = new List<PropertyRow>
+        {
+            new(T("msg.propertyName"), n.FullPath),
+            new(T("msg.propertyType"), type),
+            new(T("msg.propertySize"), ByteFormat.Format(n.OriginalSize)),
+            new(T("msg.propertyPacked"), ByteFormat.Format(n.CompressedSize)),
+            new(T("props.ratio"), n.OriginalSize > 0 ? ratio.ToString("0.0%", System.Globalization.CultureInfo.InvariantCulture) : "—"),
+            new(T("props.savings"), n.OriginalSize > 0 ? (1 - ratio).ToString("0.0%", System.Globalization.CultureInfo.InvariantCulture) : "—"),
+            new(T("msg.propertyModified"), n.LastModified.ToString("yyyy-MM-dd HH:mm:ss")),
+        };
 
-        await _dialogs.ShowInfoAsync(T("msg.properties"), message);
+        Log.Debug("Showing properties for {Path} ({Original} -> {Packed})",
+            n.FullPath, n.OriginalSize, n.CompressedSize);
+        await _dialogs.ShowPropertiesAsync(new PropertiesViewModel
+        {
+            Title = n.Name,
+            Icon = n.Type == NodeType.Directory ? IconKey.Folder : IconKey.FileArchive,
+            Description = $"{type} · {ByteFormat.Format(n.OriginalSize)}",
+            Rows = rows,
+            OriginalBytes = n.OriginalSize,
+            CompressedBytes = n.CompressedSize,
+        });
     }
 
     private bool CanInfo() => Archive.SelectedItem != null;

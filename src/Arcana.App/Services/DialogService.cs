@@ -223,6 +223,19 @@ public sealed class DialogService
     }
 
     /// <summary>
+    /// Shows the rich archive/file properties dialog (header, property list and
+    /// the WinACE-style cylinder chart showing compressed vs original size).
+    /// </summary>
+    public async Task ShowPropertiesAsync(PropertiesViewModel vm)
+    {
+        if (MainWindow == null)
+            return;
+
+        var dialog = new PropertiesDialog { DataContext = vm };
+        await ShowDialogAsync(dialog);
+    }
+
+    /// <summary>
     /// Shows an extraction-complete dialog with a summary (extracted / skipped /
     /// overwritten), the list of extracted files and an "open folder" button that
     /// reveals the target in the OS file manager.
