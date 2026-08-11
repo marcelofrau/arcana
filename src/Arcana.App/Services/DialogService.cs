@@ -236,6 +236,19 @@ public sealed class DialogService
     }
 
     /// <summary>
+    /// Shows the integrity-test summary dialog: pass/fail stats, a progress bar
+    /// and the list of failed entries (or an all-good banner).
+    /// </summary>
+    public async Task ShowTestResultAsync(TestResultViewModel vm)
+    {
+        if (MainWindow == null)
+            return;
+
+        var dialog = new TestResultDialog { DataContext = vm };
+        await ShowDialogAsync(dialog);
+    }
+
+    /// <summary>
     /// Shows an extraction-complete dialog with a summary (extracted / skipped /
     /// overwritten), the list of extracted files and an "open folder" button that
     /// reveals the target in the OS file manager.

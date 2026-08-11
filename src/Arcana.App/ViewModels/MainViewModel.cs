@@ -444,13 +444,15 @@ public partial class MainViewModel : ObservableObject
             });
 
         var ok = results.Count(r => r.Success);
-        var failed = results.Count - ok;
-        Log.Information("Archive test finished: {Ok} OK, {Failed} failed", ok, failed);
-        var detail = failed > 0
-            ? T("msg.failedDetail", string.Join("\n", results.Where(r => !r.Success).Take(10).Select(r => r.Path)))
-            : "";
-        await _dialogs.ShowInfoAsync(T("msg.testResult"),
-            T("msg.testResultDetail", ok, failed) + detail);
+        Log.Information("Archive test finished: {Ok} OK, {Failed} failed", ok, results.Count - ok);
+        var failed = results.Where(r => !r.Success).ToList();
+        await _dialogs.ShowTestResultAsync(new TestResultViewModel
+        {
+            Title = T("msg.testResult"),
+            Total = results.Count,
+            Ok = ok,
+            FailedItems = failed,
+        });
     }
 
     private bool CanTest() => Archive.HasArchive;

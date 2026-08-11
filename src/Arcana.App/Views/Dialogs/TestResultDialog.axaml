@@ -1,0 +1,162 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Arcana.App.ViewModels"
+        xmlns:svc="using:Arcana.App.Services"
+        xmlns:l="using:Arcana.App.Localization"
+        xmlns:icons="using:Arcana.App.Icons"
+        x:Class="Arcana.App.Views.Dialogs.TestResultDialog"
+        x:DataType="vm:TestResultViewModel"
+        Width="560"
+        MaxHeight="640"
+        SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        ShowInTaskbar="False"
+        Background="{DynamicResource AppSurfaceLowBrush}"
+        Title="{Binding Title}">
+    <Grid ClipToBounds="True">
+        <!-- Ambient glow orbs -->
+        <Ellipse Width="440" Height="300" HorizontalAlignment="Center" VerticalAlignment="Top"
+                 Margin="0,-190,0,0" IsHitTestVisible="False">
+            <Ellipse.Fill>
+                <RadialGradientBrush>
+                    <GradientStop Offset="0" Color="{DynamicResource AppAccentGlowInner}"/>
+                    <GradientStop Offset="1" Color="{DynamicResource AppAccentGlowOuter}"/>
+                </RadialGradientBrush>
+            </Ellipse.Fill>
+            <Ellipse.Effect>
+                <BlurEffect Radius="55"/>
+            </Ellipse.Effect>
+        </Ellipse>
+
+        <StackPanel Margin="24,22" Spacing="16">
+            <!-- Header: icon + title + subtitle -->
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="14">
+                <Border Width="46" Height="46" CornerRadius="13" VerticalAlignment="Top"
+                        Background="{DynamicResource AppChipBg}"
+                        BorderBrush="{DynamicResource AppChipBorder}" BorderThickness="1">
+                    <Image Width="23" Height="23" Stretch="Uniform"
+                           Tag="{x:Static icons:IconKey.Test}"
+                           Source="{Binding Tag, RelativeSource={RelativeSource Self}, Converter={StaticResource IconToImage}}"/>
+                </Border>
+                <StackPanel Grid.Column="1" Spacing="3" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding Title}"
+                               FontSize="17" FontWeight="SemiBold"
+                               Foreground="{DynamicResource AppTextPrimaryBrush}"/>
+                    <TextBlock FontSize="12" FontWeight="SemiBold">
+                        <Run Text="{Binding Ok, StringFormat='{}{0} OK'}"/><Run Text="  ·  "/><Run Text="{Binding Failed, StringFormat='{}{0}'}"/><Run Text="{l:Loc Key=testResult.failedShort}"/>
+                    </TextBlock>
+                </StackPanel>
+            </Grid>
+
+            <!-- Stats card -->
+            <Border CornerRadius="10" Padding="14"
+                    Background="{DynamicResource AppSurfaceRaisedBrush}"
+                    BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1">
+                <StackPanel Spacing="10">
+                    <Grid ColumnDefinitions="*,*,*,*">
+                        <StackPanel Spacing="2">
+                            <TextBlock Text="{l:Loc Key=testResult.tested}" FontSize="10"
+                                       Foreground="{DynamicResource AppTextSecondaryBrush}"/>
+                            <TextBlock Text="{Binding Total}" FontSize="15" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource AppTextPrimaryBrush}"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Spacing="2">
+                            <TextBlock Text="{l:Loc Key=testResult.ok}" FontSize="10"
+                                       Foreground="{DynamicResource AppTextSecondaryBrush}"/>
+                            <TextBlock Text="{Binding Ok}" FontSize="15" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource AppSuccessBrush}"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="2" Spacing="2">
+                            <TextBlock Text="{l:Loc Key=testResult.failed}" FontSize="10"
+                                       Foreground="{DynamicResource AppTextSecondaryBrush}"/>
+                            <TextBlock Text="{Binding Failed}" FontSize="15" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource AppErrorBrush}"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="3" Spacing="2">
+                            <TextBlock Text="{l:Loc Key=testResult.passPercent}" FontSize="10"
+                                       Foreground="{DynamicResource AppTextSecondaryBrush}"/>
+                            <TextBlock Text="{Binding PassPercent, StringFormat='{}{0:0}%'}"
+                                       FontSize="15" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource AppTextPrimaryBrush}"/>
+                        </StackPanel>
+                    </Grid>
+                    <ProgressBar Height="6" CornerRadius="3"
+                                 Value="{Binding Ok}" Maximum="{Binding ProgressMax}"
+                                 Foreground="{DynamicResource AppSuccessBrush}"
+                                 Background="{DynamicResource AppSurfaceBrush}"/>
+                </StackPanel>
+            </Border>
+
+            <!-- Failure list card -->
+            <Border CornerRadius="10" Padding="12"
+                    Background="{DynamicResource AppSurfaceRaisedBrush}"
+                    BorderBrush="{DynamicResource AppErrorBrush}" BorderThickness="1"
+                    IsVisible="{Binding HasFailures}">
+                <StackPanel Spacing="8">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock Text="{l:Loc Key=testResult.failedList}"
+                                   FontSize="11" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource AppTextSecondaryBrush}"/>
+                        <TextBlock Grid.Column="1" Text="{Binding FailedItems.Count}"
+                                   FontSize="11" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource AppErrorBrush}"/>
+                    </Grid>
+                    <ScrollViewer MaxHeight="180" HorizontalScrollBarVisibility="Auto">
+                        <ItemsControl ItemsSource="{Binding FailedItems}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="svc:TestResult">
+                                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8" Margin="0,2">
+                                        <Image Width="14" Height="14" Stretch="Uniform"
+                                               Tag="{x:Static icons:IconKey.Warning}"
+                                               Source="{Binding Tag, RelativeSource={RelativeSource Self}, Converter={StaticResource IconToImage}}"
+                                               VerticalAlignment="Top" Margin="0,1"/>
+                                        <StackPanel Grid.Column="1" Spacing="1">
+                                            <TextBlock Text="{Binding Path}" FontSize="11" FontWeight="SemiBold"
+                                                       TextWrapping="Wrap"
+                                                       Foreground="{DynamicResource AppTextPrimaryBrush}"/>
+                                            <TextBlock Text="{Binding Message}" FontSize="10"
+                                                       TextWrapping="Wrap"
+                                                       Foreground="{DynamicResource AppTextSecondaryBrush}"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </StackPanel>
+            </Border>
+
+            <!-- All-good banner -->
+            <Border CornerRadius="10" Padding="12"
+                    Background="{DynamicResource AppSurfaceRaisedBrush}"
+                    BorderBrush="{DynamicResource AppSuccessBrush}" BorderThickness="1"
+                    IsVisible="{Binding Passed}">
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                    <Border Width="24" Height="24" CornerRadius="7" VerticalAlignment="Top"
+                            Background="{DynamicResource AppChipBg}"
+                            BorderBrush="{DynamicResource AppChipBorder}" BorderThickness="1">
+                        <Image Width="13" Height="13" Stretch="Uniform"
+                               Tag="{x:Static icons:IconKey.Check}"
+                               Source="{Binding Tag, RelativeSource={RelativeSource Self}, Converter={StaticResource IconToImage}}"/>
+                    </Border>
+                    <TextBlock Grid.Column="1" Text="{l:Loc Key=testResult.noFailures}" FontSize="12"
+                               TextWrapping="Wrap" VerticalAlignment="Center"
+                               Foreground="{DynamicResource AppTextPrimaryBrush}"/>
+                </Grid>
+            </Border>
+
+            <!-- Actions -->
+            <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" Spacing="8">
+                <Button MinWidth="90" Classes="accent" Click="OnOkClick">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <Image Width="14" Height="14" Stretch="Uniform"
+                               Tag="{x:Static icons:IconKey.Check}"
+                               Source="{Binding Tag, RelativeSource={RelativeSource Self}, Converter={StaticResource IconToImage}}"/>
+                        <TextBlock Text="{l:Loc Key=common.ok}" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+        </StackPanel>
+    </Grid>
+</Window>
