@@ -1,8 +1,13 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
+using Avalonia.Labs.Gif;
 using Avalonia.Media.Imaging;
+using SharpCompress.Archives.Zip;
 using Serilog;
+using UglyToad.PdfPig;
 
 namespace Arcana.App.Services;
 
@@ -11,10 +16,11 @@ public enum PreviewKind
     None,
     Text,
     Image,
+    Gif,
     Hex
 }
 
-public sealed record PreviewResult(PreviewKind Kind, string Text, Bitmap? Image, string Info);
+public sealed record PreviewResult(PreviewKind Kind, string Text, Bitmap? Image, string Info, string? Error = null, IGifSource? GifSource = null);
 
 public class PreviewService
 {
@@ -22,6 +28,7 @@ public class PreviewService
 
     private const int MaxTextBytes = 262144;
     private const int MaxHexBytes = 65536;
+    private const int MaxImageBytes = 33554432;
 
     public PreviewKind DetectKind(string fileName)
     {
@@ -33,7 +40,9 @@ public class PreviewService
                 or ".cfg" or ".log" or ".sql" or ".bat" or ".ps1" or ".toml" or ".xaml"
                 or ".axaml" or ".sln" or ".csproj" or ".props" or ".targets" or ".gitignore"
                 or ".editorconfig" or ".license" or ".nuspec" => PreviewKind.Text,
-            ".png" or ".jpg" or ".jpeg" or ".bmp" or ".gif" or ".ico" => PreviewKind.Image,
+            ".pdf" or ".docx" or ".xlsx" or ".pptx" => PreviewKind.Text,
+            ".png" or ".jpg" or ".jpeg" or ".bmp" or ".ico" => PreviewKind.Image,
+            ".gif" => PreviewKind.Gif,
             _ => PreviewKind.Hex,
         };
     }
@@ -45,11 +54,154 @@ public class PreviewService
         switch (kind)
         {
             case PreviewKind.Text:
-                return LoadText(stream, size);
+                return LoadStructuredText(stream, fileName, size);
             case PreviewKind.Image:
                 return LoadImage(stream, size);
+            case PreviewKind.Gif:
+                return LoadGif(stream, size);
             default:
                 return LoadHex(stream, size);
+        }
+    }
+
+    /// <summary>
+    /// Routes text-kind previews: PDF/docx/xlsx/pptx get structured extractors,
+    /// everything else reads raw bytes as text.
+    /// </summary>
+    private PreviewResult LoadStructuredText(Stream stream, string fileName, long size)
+    {
+        return Path.GetExtension(fileName).ToLowerInvariant() switch
+        {
+            ".pdf" => LoadPdf(stream, size),
+            ".docx" => LoadOfficeText(stream, size, "word/document.xml",
+                s => s.Replace("</w:p>", "\n").Replace("</w:tab>", "\t"), "docx"),
+            ".xlsx" => LoadOfficeText(stream, size, "xl/sharedStrings.xml",
+                s => s.Replace("</t>", "\n"), "xlsx"),
+            ".pptx" => LoadPptx(stream, size),
+            _ => LoadText(stream, size),
+        };
+    }
+
+    public PreviewResult LoadPdf(Stream stream, long size)
+    {
+        try
+        {
+            var sb = new StringBuilder();
+            using var doc = PdfDocument.Open(stream);
+            var pageCount = doc.NumberOfPages;
+            var pagesToRead = Math.Min(pageCount, 20);
+            for (var p = 1; p <= pagesToRead && sb.Length < MaxTextBytes; p++)
+            {
+                if (p > 1)
+                    sb.Append('\n');
+                sb.Append($"[Page {p}]\n");
+                sb.Append(doc.GetPage(p).Text);
+            }
+
+            var text = Truncate(sb.ToString(), MaxTextBytes);
+            var info = $"{ByteFormat.Format(size)} · pdf · {pageCount} page(s)";
+            if (string.IsNullOrWhiteSpace(text))
+                info += " (no extractable text)";
+
+            return new PreviewResult(PreviewKind.Text, text, null, info);
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "PDF text preview failed");
+            return new PreviewResult(PreviewKind.Hex, "(pdf preview failed)", null, ByteFormat.Format(size), ex.Message);
+        }
+    }
+
+    public PreviewResult LoadOfficeText(Stream stream, long size, string entryName, Func<string, string>? normalize, string format)
+    {
+        try
+        {
+            using var archive = ZipArchive.OpenArchive(stream);
+            var entry = archive.Entries.FirstOrDefault(e => e.Key?.Equals(entryName, StringComparison.OrdinalIgnoreCase) == true);
+            if (entry == null)
+                return new PreviewResult(PreviewKind.Hex, $"(no {entryName} found)", null, ByteFormat.Format(size), $"missing entry: {entryName}");
+
+            using var ms = new MemoryStream();
+            entry.OpenEntryStream().CopyTo(ms);
+            var xml = Encoding.UTF8.GetString(ms.ToArray());
+            var body = normalize != null ? normalize(xml) : xml;
+            var text = Truncate(StripXmlTags(body), MaxTextBytes);
+
+            var info = $"{ByteFormat.Format(size)} · {format}";
+            if (string.IsNullOrWhiteSpace(text))
+                info += " (no extractable text)";
+
+            return new PreviewResult(PreviewKind.Text, text, null, info);
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "{Format} preview failed", format);
+            return new PreviewResult(PreviewKind.Hex, $"({format} preview failed)", null, ByteFormat.Format(size), ex.Message);
+        }
+    }
+
+    public PreviewResult LoadPptx(Stream stream, long size)
+    {
+        try
+        {
+            using var archive = ZipArchive.OpenArchive(stream);
+            var slides = archive.Entries
+                .Where(e => e.Key?.StartsWith("ppt/slides/", StringComparison.OrdinalIgnoreCase) == true
+                            && e.Key.EndsWith(".xml", StringComparison.OrdinalIgnoreCase))
+                .OrderBy(e => e.Key, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            var sb = new StringBuilder();
+            foreach (var slide in slides)
+            {
+                using var ms = new MemoryStream();
+                slide.OpenEntryStream().CopyTo(ms);
+                var xml = Encoding.UTF8.GetString(ms.ToArray());
+                var texts = Regex.Matches(xml, "<a:t>(.*?)</a:t>", RegexOptions.Singleline)
+                    .Select(m => m.Groups[1].Value);
+                if (sb.Length >= MaxTextBytes)
+                    break;
+                sb.Append($"--- {slide.Key} ---\n");
+                sb.Append(string.Join('\n', texts));
+                sb.Append('\n');
+            }
+
+            var text = Truncate(sb.ToString(), MaxTextBytes);
+            var info = $"{ByteFormat.Format(size)} · pptx · {slides.Count} slide(s)";
+            return new PreviewResult(PreviewKind.Text, text, null, info);
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "PPTX preview failed");
+            return new PreviewResult(PreviewKind.Hex, "(pptx preview failed)", null, ByteFormat.Format(size), ex.Message);
+        }
+    }
+
+    private static string StripXmlTags(string xml)
+    {
+        xml = Regex.Replace(xml, "<[^>]+>", "");
+        return xml.Replace("&amp;", "&")
+                  .Replace("&lt;", "<")
+                  .Replace("&gt;", ">")
+                  .Replace("&quot;", "\"")
+                  .Replace("&apos;", "'");
+    }
+
+    private static string Truncate(string value, int maxBytes) =>
+        value.Length <= maxBytes ? value : value[..maxBytes];
+
+    public PreviewResult LoadGif(Stream stream, long size)
+    {
+        try
+        {
+            var source = GifStreamSource.FromStream(stream);
+            var info = $"{ByteFormat.Format(size)} · {source.Size.Width}×{source.Size.Height} · gif (animated)";
+            return new PreviewResult(PreviewKind.Gif, "", null, info, GifSource: source);
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "GIF preview decode failed");
+            return new PreviewResult(PreviewKind.Hex, "(gif could not be decoded)", null, ByteFormat.Format(size), ex.Message);
         }
     }
 
@@ -100,6 +252,9 @@ public class PreviewService
     {
         try
         {
+            if (size > MaxImageBytes)
+                return new PreviewResult(PreviewKind.Hex, "(image too large to preview)", null, ByteFormat.Format(size));
+
             stream.Position = 0;
             var bitmap = new Bitmap(stream);
             var info = $"{ByteFormat.Format(size)} · {bitmap.PixelSize.Width}×{bitmap.PixelSize.Height}";
@@ -108,7 +263,7 @@ public class PreviewService
         catch (Exception ex)
         {
             Log.Warning(ex, "Image preview decode failed");
-            return new PreviewResult(PreviewKind.Hex, "(image could not be decoded)", null, ByteFormat.Format(size));
+            return new PreviewResult(PreviewKind.Hex, "(image could not be decoded)", null, ByteFormat.Format(size), ex.Message);
         }
     }
 

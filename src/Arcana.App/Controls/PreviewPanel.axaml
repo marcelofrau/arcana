@@ -2,6 +2,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:Arcana.App.ViewModels"
              xmlns:l="using:Arcana.App.Localization"
+             xmlns:labs="using:Avalonia.Labs.Gif"
              x:Class="Arcana.App.Controls.PreviewPanel"
              x:DataType="vm:MainViewModel">
     <Border Classes="preview-pane"
@@ -14,6 +15,13 @@
             <TextBlock DockPanel.Dock="Bottom" Margin="10,0,10,6"
                        Text="{Binding Preview.FileInfo}" Classes="muted" FontSize="11"/>
 
+            <Border DockPanel.Dock="Top" Margin="10,6" Padding="10,8" CornerRadius="4"
+                    Background="{DynamicResource AppErrorBrush}"
+                    IsVisible="{Binding Preview.HasPreviewError}">
+                <TextBlock Text="{Binding Preview.PreviewError}" Classes="muted"
+                           Foreground="White" TextWrapping="Wrap" FontSize="11"/>
+            </Border>
+
             <ProgressBar DockPanel.Dock="Bottom" Height="3"
                          IsVisible="{Binding Preview.IsLoading}" IsIndeterminate="True"/>
 
@@ -24,6 +32,12 @@
                                    IsVisible="{Binding Preview.Kind, Converter={StaticResource Equals}, ConverterParameter=Text}"/>
                         <TextBlock Text="{Binding Preview.TextContent}" Classes="hex"
                                    IsVisible="{Binding Preview.Kind, Converter={StaticResource Equals}, ConverterParameter=Hex}"/>
+                        <Border IsVisible="{Binding Preview.Kind, Converter={StaticResource Equals}, ConverterParameter=Gif}"
+                                Background="White" CornerRadius="4" Padding="8"
+                                HorizontalAlignment="Stretch">
+                            <labs:GifImage Source="{Binding Preview.GifSource}" Stretch="Uniform"
+                                           MaxHeight="420" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
                         <Border IsVisible="{Binding Preview.Kind, Converter={StaticResource Equals}, ConverterParameter=Image}"
                                 Background="White" CornerRadius="4" Padding="8"
                                 HorizontalAlignment="Stretch">

@@ -1,5 +1,5 @@
 using System;
-using System.IO;
+using Avalonia.Labs.Gif;
 using Avalonia.Media.Imaging;
 using Arcana.App.Icons;
 using Arcana.App.Services;
@@ -43,9 +43,18 @@ public partial class PreviewViewModel : ObservableObject
     private Bitmap? _image;
 
     [ObservableProperty]
+    private IGifSource? _gifSource;
+
+    [ObservableProperty]
     private bool _isBinaryPlaceholder;
 
-    private MemoryStream? _imageStream;
+    [ObservableProperty]
+    private string _previewError = "";
+
+    public bool HasPreviewError => PreviewError.Length > 0;
+
+    partial void OnPreviewErrorChanged(string value)
+        => OnPropertyChanged(nameof(HasPreviewError));
 
     public IconKey PlaceholderIcon =>
         _item is { } item ? IconResolver.ForNode(item.Node) : IconKey.FileGeneric;
@@ -78,18 +87,23 @@ public partial class PreviewViewModel : ObservableObject
             Kind = result.Kind;
             FileInfo = result.Info;
             TextContent = result.Text;
+            PreviewError = result.Error ?? "";
 
-            if (result.Image != null)
+            if (result.GifSource != null)
             {
-                _imageStream = CopyToMemory(content);
-                _imageStream.Position = 0;
+                DisposeGif();
+                GifSource = result.GifSource;
+            }
+            else if (result.Image != null)
+            {
                 try
                 {
-                    Image = new Bitmap(_imageStream);
+                    Image = result.Image;
                 }
                 catch (Exception ex)
                 {
                     Log.Warning(ex, "Could not build preview bitmap for {File}", item.Name);
+                    PreviewError = ex.Message;
                     DisposeImage();
                 }
             }
@@ -97,6 +111,7 @@ public partial class PreviewViewModel : ObservableObject
         catch (Exception ex)
         {
             Log.Warning(ex, "Could not load preview for {File}", item.Name);
+            PreviewError = ex.Message;
             IsBinaryPlaceholder = true;
         }
         finally
@@ -137,6 +152,7 @@ public partial class PreviewViewModel : ObservableObject
     public void Clear()
     {
         DisposeImage();
+        DisposeGif();
         _item = null;
         IsVisible = false;
         IsLoading = false;
@@ -145,22 +161,19 @@ public partial class PreviewViewModel : ObservableObject
         Kind = PreviewKind.None;
         TextContent = "";
         IsBinaryPlaceholder = false;
+        PreviewError = "";
     }
 
     private void DisposeImage()
     {
         Image?.Dispose();
         Image = null;
-        _imageStream?.Dispose();
-        _imageStream = null;
     }
 
-    private static MemoryStream CopyToMemory(Stream source)
+    private void DisposeGif()
     {
-        source.Position = 0;
-        var ms = new MemoryStream();
-        source.CopyTo(ms);
-        ms.Position = 0;
-        return ms;
+        if (GifSource is IDisposable disposable)
+            disposable.Dispose();
+        GifSource = null;
     }
 }
