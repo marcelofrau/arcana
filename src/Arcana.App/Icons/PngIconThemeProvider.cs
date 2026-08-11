@@ -10,9 +10,11 @@ namespace Arcana.App.Icons;
 /// <summary>
 /// Generic built-in icon theme backed by committed PNGs (rasterized at 48px via
 /// tools/IconTool, see build/update-*-icons.ps1; Arcana uses color icons from the
-/// icons8 personal set, see build/update-arcana-icons.ps1). Slots it does not
-/// cover fall back to the Material vector set. Used for the Numix, Tango,
-/// La Capitaine and Arcana themes.
+/// icons8 personal set, see build/update-arcana-icons.ps1; Windows XP uses the
+/// "Windows XP High Resolution Icon Pack" by marchmountain, see
+/// build/update-windowsxp-icons.ps1). Slots it does not cover fall back to the
+/// Material vector set. Used for the Numix, Tango, La Capitaine, Arcana and
+/// Windows XP themes.
 /// </summary>
 public sealed class PngIconThemeProvider : IIconProvider
 {
@@ -22,6 +24,7 @@ public sealed class PngIconThemeProvider : IIconProvider
     public const string TangoName = "Tango";
     public const string LaCapitaineName = "La Capitaine";
     public const string ArcanaName = "Arcana";
+    public const string WindowsXPName = "Windows XP";
 
     public string Name { get; }
     public double ToolbarSize { get; }

@@ -11,10 +11,10 @@ namespace Arcana.App.Icons;
 
 /// <summary>
 /// Manages icon themes. Built-in action themes are "Arcana" (default), "Numix",
-/// "Tango", "La Capitaine" and "Material"; the filesystem icons (folders and
-/// file mimetypes) always come from the "Papirus" set. "Papirus" is still
-/// accepted as a legacy whole-app theme value. WinRAR-style themes can be
-/// installed as .theme.rar and are extracted to %APPDATA%\Arcana\Themes; they
+/// "Tango", "La Capitaine", "Windows XP" and "Material"; the filesystem icons
+/// (folders and file mimetypes) always come from the "Papirus" set. "Papirus"
+/// is still accepted as a legacy whole-app theme value. WinRAR-style themes can
+/// be installed as .theme.rar and are extracted to %APPDATA%\Arcana\Themes; they
 /// replace the action icons only. The last selected theme is persisted.
 /// </summary>
 public sealed class IconThemeService
@@ -46,12 +46,15 @@ public sealed class IconThemeService
             PngIconThemeProvider.LaCapitaineName, "LaCapitaine", LaCapitaineSlots, materialProvider);
         var arcana = new PngIconThemeProvider(
             PngIconThemeProvider.ArcanaName, "Arcana", ArcanaSlots, materialProvider);
+        var windowsXp = new PngIconThemeProvider(
+            PngIconThemeProvider.WindowsXPName, "WindowsXP", WindowsXpSlots, materialProvider);
         _actionProviders = new Dictionary<string, IIconProvider>(StringComparer.OrdinalIgnoreCase)
         {
             [PngIconThemeProvider.ArcanaName] = arcana,
             [PngIconThemeProvider.NumixName] = numix,
             [PngIconThemeProvider.TangoName] = tango,
             [PngIconThemeProvider.LaCapitaineName] = laCapitaine,
+            [PngIconThemeProvider.WindowsXPName] = windowsXp,
             [PapirusIconProvider.MaterialName] = materialProvider,
             [PapirusIconProvider.BuiltInName] = _papirusProvider,
         };
@@ -79,6 +82,7 @@ public sealed class IconThemeService
         PngIconThemeProvider.NumixName,
         PngIconThemeProvider.TangoName,
         PngIconThemeProvider.LaCapitaineName,
+        PngIconThemeProvider.WindowsXPName,
         PapirusIconProvider.MaterialName,
     };
 
@@ -344,6 +348,37 @@ public sealed class IconThemeService
             [IconKey.Settings] = "settings",
             [IconKey.SortUp] = "sort-up",
             [IconKey.SortDown] = "sort-down",
+        };
+
+    private static readonly IReadOnlyDictionary<IconKey, string> WindowsXpSlots =
+        new Dictionary<IconKey, string>
+        {
+            [IconKey.Open] = "open",
+            [IconKey.Add] = "add",
+            [IconKey.Extract] = "extract",
+            [IconKey.Test] = "test",
+            [IconKey.View] = "view",
+            [IconKey.Delete] = "delete",
+            [IconKey.Find] = "find",
+            [IconKey.Info] = "info",
+            [IconKey.Save] = "save",
+            [IconKey.Settings] = "settings",
+            [IconKey.Help] = "help",
+            [IconKey.Close] = "close",
+            [IconKey.Split] = "split",
+            [IconKey.Convert] = "convert",
+            [IconKey.Password] = "password",
+            [IconKey.Rename] = "rename",
+            [IconKey.SelectAll] = "select-all",
+            [IconKey.Favorite] = "favorite",
+            [IconKey.Hash] = "hash",
+            [IconKey.Optimize] = "optimize",
+            [IconKey.Check] = "check",
+            [IconKey.ArrowBack] = "arrow-back",
+            [IconKey.ArrowForward] = "arrow-forward",
+            [IconKey.Copy] = "copy",
+            [IconKey.Refresh] = "refresh",
+            [IconKey.Play] = "play",
         };
 
     private static readonly IReadOnlyDictionary<IconKey, string> ArcanaSlots =

@@ -989,9 +989,45 @@ public partial class MainViewModel : ObservableObject
     private async Task Info()
     {
         var item = Archive.SelectedItem;
-        if (item == null)
+        if (item != null)
+        {
+            await ShowItemPropertiesAsync(item);
+            return;
+        }
+
+        if (Archive.Archive is not { } archive || Archive.Root is not { } root)
             return;
 
+        var files = archive.Entries.Count(e => !e.IsDirectory);
+        var totalOriginal = archive.Entries.Sum(e => e.Size);
+        var totalPacked = archive.Entries.Sum(e => e.CompressedSize);
+        var ratio = totalOriginal > 0 ? totalPacked / (double)totalOriginal : 1;
+        var rows = new List<PropertyRow>
+        {
+            new(T("msg.propertyName"), root.Name),
+            new(T("msg.propertyType"), $"{FormatLabel(archive.Format)} {T("msg.typeArchive")}"),
+            new(T("msg.propertyEntries"), files.ToString()),
+            new(T("msg.propertySize"), ByteFormat.Format(totalOriginal)),
+            new(T("msg.propertyPacked"), ByteFormat.Format(totalPacked)),
+            new(T("props.ratio"), totalOriginal > 0 ? ratio.ToString("0.0%", System.Globalization.CultureInfo.InvariantCulture) : "—"),
+            new(T("props.savings"), totalOriginal > 0 ? (1 - ratio).ToString("0.0%", System.Globalization.CultureInfo.InvariantCulture) : "—"),
+        };
+
+        Log.Debug("Showing archive properties {Name} ({Format}, {Files} files, {Original} -> {Packed})",
+            root.Name, archive.Format, files, totalOriginal, totalPacked);
+        await _dialogs.ShowPropertiesAsync(new PropertiesViewModel
+        {
+            Title = root.Name,
+            Icon = IconKey.FileArchive,
+            Description = $"{T("msg.typeArchive")} · {ByteFormat.Format(totalOriginal)}",
+            Rows = rows,
+            OriginalBytes = totalOriginal,
+            CompressedBytes = totalPacked,
+        });
+    }
+
+    private async Task ShowItemPropertiesAsync(FileEntryItem item)
+    {
         var n = item.Node;
         var type = n.Type == NodeType.Directory ? T("msg.typeFolder") : T("msg.typeFile");
         var ratio = n.OriginalSize > 0 ? n.CompressedSize / (double)n.OriginalSize : 1;
@@ -1019,7 +1055,34 @@ public partial class MainViewModel : ObservableObject
         });
     }
 
-    private bool CanInfo() => Archive.SelectedItem != null;
+    private static string FormatLabel(CompressionFormat format) => format switch
+    {
+        CompressionFormat.Zip => "ZIP",
+        CompressionFormat.SevenZip => "7z",
+        CompressionFormat.Zstandard => "ZSTD",
+        CompressionFormat.Brotli => "BR",
+        CompressionFormat.Lz4 => "LZ4",
+        CompressionFormat.Lzma => "LZMA",
+        CompressionFormat.Xz => "XZ",
+        CompressionFormat.BZip2 => "BZIP2",
+        CompressionFormat.GZip => "GZIP",
+        CompressionFormat.Tar => "TAR",
+        CompressionFormat.TarGz => "TAR.GZ",
+        CompressionFormat.TarBz2 => "TAR.BZ2",
+        CompressionFormat.TarXz => "TAR.XZ",
+        CompressionFormat.TarZstd => "TAR.ZSTD",
+        CompressionFormat.Rar => "RAR",
+        CompressionFormat.Ace => "ACE",
+        CompressionFormat.Arj => "ARJ",
+        CompressionFormat.Cab => "CAB",
+        CompressionFormat.Lzh => "LZH",
+        CompressionFormat.Hawkynt => "RAW",
+        CompressionFormat.Snappy => "SNAPPY",
+        CompressionFormat.Iso => "ISO",
+        _ => format.ToString(),
+    };
+
+    private bool CanInfo() => Archive.HasArchive;
 
     [RelayCommand]
     private async Task Find()

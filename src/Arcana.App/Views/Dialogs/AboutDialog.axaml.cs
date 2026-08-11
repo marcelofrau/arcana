@@ -170,18 +170,8 @@ public partial class AboutDialog : Window
     {
         if (!_creditsReady)
         {
-            // Measure at the box's real width so Wrap yields the true wrapped
-            // height (infinite width would collapse _textHeight to one line and
-            // the marquee would never scroll past the header into the story).
-            var width = Math.Max(0, CreditsBox.Bounds.Width - 16);
-            if (width <= 0)
+            if (!MeasureCredits())
                 return;
-            CreditsText.Measure(new Size(width, double.PositiveInfinity));
-            _textHeight = CreditsText.DesiredSize.Height;
-            _viewHeight = CreditsBox.Bounds.Height;
-            if (_viewHeight <= 0 || _textHeight <= 0)
-                return;
-
             _creditsReady = true;
             _creditsY = _viewHeight;
             _creditsTransform.Y = _creditsY;
@@ -189,10 +179,35 @@ public partial class AboutDialog : Window
         }
 
         _creditsY -= 1.1;
-        if (_creditsY < -_textHeight)
+        if (_creditsY <= -_textHeight)
+        {
+            // Re-measure at the loop point: fonts may not have been loaded when
+            // the height was first measured, so the stale value could be smaller
+            // than the real wrapped height and silently skip the tail of the text.
+            MeasureCredits();
             _creditsY = _viewHeight;
+        }
 
         _creditsTransform.Y = _creditsY;
+    }
+
+    private bool MeasureCredits()
+    {
+        var width = Math.Max(0, CreditsBox.Bounds.Width - 16);
+        var height = CreditsBox.Bounds.Height;
+        if (width <= 0 || height <= 0)
+            return false;
+
+        // Measure at the box's real width so Wrap yields the true wrapped height
+        // (infinite width would collapse the text to one line).
+        CreditsText.Measure(new Size(width, double.PositiveInfinity));
+        var textHeight = CreditsText.DesiredSize.Height;
+        if (textHeight <= 0)
+            return false;
+
+        _textHeight = textHeight;
+        _viewHeight = height;
+        return true;
     }
 
     private void OnOkClick(object? sender, RoutedEventArgs e)

@@ -70,6 +70,7 @@ public class CylinderChart : Control
 
         var fill = Math.Clamp(FilledRatio, 0, 1);
         var accent = FillBrush is ISolidColorBrush sc ? sc.Color : Color.FromRgb(0x3C, 0xB3, 0x71);
+        var empty = EmptyBrush is ISolidColorBrush ec ? ec.Color : accent;
 
         double cx = Bounds.Width / 2;
         double rx = Math.Min(Math.Max(Bounds.Width - 10, 10) / 2, 78);
@@ -85,10 +86,10 @@ public class CylinderChart : Control
         var bodyRect = new Rect(cx - rx, topY, rx * 2, bottomY - topY);
         using (dc.PushClip(bodyRect))
         {
-            // Empty top volume (dark, translucent).
+            // Empty top volume (themed pot interior).
             var emptyRect = new Rect(cx - rx, topY, rx * 2, Math.Max(fillTop - topY, 0));
             if (emptyRect.Height > 0)
-                dc.DrawRectangle(BuildEmptySideBrush(accent), null, emptyRect);
+                dc.DrawRectangle(new ImmutableSolidColorBrush(empty), null, emptyRect);
 
             // Filled bottom volume — the compressed content.
             var fillRect = new Rect(cx - rx, fillTop, rx * 2, Math.Max(fillBottom - fillTop, 0));
@@ -112,11 +113,11 @@ public class CylinderChart : Control
             dc.DrawEllipse(null, new Pen(BuildSeparatorBrush(accent), 1.2), new Point(cx, fillTop), rx - 2, Math.Max(ry - 2, 1));
         }
 
-        // Foot ellipse.
-        dc.DrawEllipse(BuildFootBrush(accent), new Pen(RimBrush, 1), new Point(cx, bottomY), rx, ry);
-        dc.DrawEllipse(BuildEmptySideBrush(accent), new Pen(BuildSeparatorBrush(accent), 1), new Point(cx, topY), rx, ry);
+        // Foot + top ellipse.
+        dc.DrawEllipse(BuildFootBrush(empty), new Pen(RimBrush, 1), new Point(cx, bottomY), rx, ry);
+        dc.DrawEllipse(new ImmutableSolidColorBrush(empty), new Pen(BuildSeparatorBrush(accent), 1), new Point(cx, topY), rx, ry);
 
-        // Percent label next to the fill level.
+        // Percent label centered inside the cylinder at the fill level.
         var label = new FormattedText(
             $"{fill * 100:0.#}%",
             System.Globalization.CultureInfo.InvariantCulture,
@@ -124,7 +125,11 @@ public class CylinderChart : Control
             Typeface.Default,
             12,
             TextBrush);
-        dc.DrawText(label, new Point(cx + rx + 6, Math.Max(0, fillTop - label.Height / 2)));
+        var labelX = cx - label.Width / 2;
+        var labelY = Math.Clamp(fillTop - label.Height / 2, 0, Math.Max(0, Bounds.Height - label.Height));
+        var chip = new RoundedRect(new Rect(labelX - 6, labelY - 2, label.Width + 12, label.Height + 4), 5);
+        dc.DrawRectangle(new ImmutableSolidColorBrush(Color.FromArgb(0x78, 0x00, 0x00, 0x00)), null, chip);
+        dc.DrawText(label, new Point(labelX, labelY));
     }
 
     private static IBrush BuildSideBrush(Color accent)
@@ -143,18 +148,12 @@ public class CylinderChart : Control
         };
     }
 
-    private static IBrush BuildEmptySideBrush(Color accent)
-    {
-        var c = Shade(accent, 0.30f);
-        return new ImmutableSolidColorBrush(Color.FromArgb(150, c.R, c.G, c.B));
-    }
-
     private static IBrush BuildSeparatorBrush(Color accent) => new ImmutableSolidColorBrush(Shade(accent, 0.42f));
 
-    private static IBrush BuildFootBrush(Color accent)
+    private static IBrush BuildFootBrush(Color c)
     {
-        var c = Shade(accent, 0.30f);
-        return new ImmutableSolidColorBrush(Color.FromArgb(230, c.R, c.G, c.B));
+        var s = Shade(c, 0.82f);
+        return new ImmutableSolidColorBrush(Color.FromArgb(230, s.R, s.G, s.B));
     }
 
     private static Color Shade(Color c, float factor)
