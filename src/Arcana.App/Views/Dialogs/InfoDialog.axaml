@@ -19,7 +19,12 @@
         <TextBlock Text="{Binding Message}"
                    TextWrapping="Wrap"
                    Foreground="{DynamicResource AppTextSecondaryBrush}"/>
+        <CheckBox IsVisible="{Binding ShowApplyToAll}" IsChecked="{Binding ApplyToAll, Mode=TwoWay}"
+                  Content="{l:Loc Key=msg.applyToAll}"/>
         <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" Spacing="8">
+            <Button x:Name="SecondActionButton" MinWidth="90" Classes="secondary"
+                    Click="OnSecondActionClick" IsVisible="False"
+                    Content="{Binding SecondActionButtonText}"/>
             <Button x:Name="ActionButton" MinWidth="110" Classes="accent"
                     Click="OnActionClick"
                     IsVisible="False">
@@ -36,7 +41,7 @@
                     <Image Width="14" Height="14" Stretch="Uniform"
                            Tag="{x:Static icons:IconKey.Check}"
                            Source="{Binding Tag, RelativeSource={RelativeSource Self}, Converter={StaticResource IconToImage}}"/>
-                    <TextBlock Text="{l:Loc Key=common.ok}" VerticalAlignment="Center"/>
+                    <TextBlock Text="{Binding DismissText}" VerticalAlignment="Center"/>
                 </StackPanel>
             </Button>
         </StackPanel>

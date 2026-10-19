@@ -17,7 +17,8 @@ public static class LogConfig
         var logFile = Path.Combine(LogDirectory, "arcana-.log");
         Log.Logger = new LoggerConfiguration()
             .MinimumLevel.ControlledBy(LevelSwitch)
-            .WriteTo.Console(outputTemplate: "[{Timestamp:HH:mm:ss.fff} {Level:u3}] {Message:lj}{NewLine}{Exception}")
+            .WriteTo.Console(standardErrorFromLevel: Serilog.Events.LogEventLevel.Verbose,
+                outputTemplate: "[{Timestamp:HH:mm:ss.fff} {Level:u3}] {Message:lj}{NewLine}{Exception}")
             .WriteTo.File(
                 logFile,
                 rollingInterval: RollingInterval.Day,

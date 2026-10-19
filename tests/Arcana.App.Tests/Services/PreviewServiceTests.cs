@@ -12,6 +12,22 @@ public class PreviewServiceTests
 {
     private readonly PreviewService _sut = new();
 
+    [Fact]
+    public void InvalidTextEncoding_ShowsErrorInsteadOfGuessingLatin1()
+    {
+        using var input = new MemoryStream([0xC3, 0x28]);
+        _sut.LoadText(input, input.Length).Error.Should().NotBeNullOrEmpty();
+    }
+
+    [Fact]
+    public void OfficeXmlExpansion_IsBounded()
+    {
+        using var zip = BuildZip(("word/document.xml", "<w:t>" + new string('a', 1024 * 1024) + "</w:t>"));
+        var result = _sut.LoadOfficeText(zip, zip.Length, "word/document.xml", null, "docx");
+        result.Text.Length.Should().BeLessThanOrEqualTo(262144);
+        result.Info.Should().Contain("truncated");
+    }
+
     [Theory]
     [InlineData("report.pdf", PreviewKind.Text)]
     [InlineData("letter.docx", PreviewKind.Text)]

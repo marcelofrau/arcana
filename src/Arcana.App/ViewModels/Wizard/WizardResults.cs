@@ -13,9 +13,10 @@ public static class WizardFormats
         new FormatOption("7Z", "7z", ".7z"),
         new FormatOption("ZSTD", "zstd", ".zst"),
         new FormatOption("TAR", "tar", ".tar"),
-        new FormatOption("GZIP", "gz", ".tar.gz"),
-        new FormatOption("BZIP2", "bz2", ".tar.bz2"),
-        new FormatOption("XZ", "xz", ".tar.xz"),
+        new FormatOption("TAR + GZIP", "tar.gz", ".tar.gz"),
+        new FormatOption("TAR + BZIP2", "tar.bz2", ".tar.bz2"),
+        new FormatOption("TAR + XZ", "tar.xz", ".tar.xz"),
+        new FormatOption("TAR + ZSTD", "tar.zst", ".tar.zst"),
     };
 
     public static FormatOption Default => All[0];

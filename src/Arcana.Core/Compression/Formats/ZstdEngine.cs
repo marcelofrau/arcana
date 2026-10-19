@@ -1,14 +1,14 @@
 using Arcana.Core.Cryptography;
-using SharpCompress.Common;
-using SharpCompress.Writers;
+using Arcana.Core.Filesystem;
 using Serilog;
-using ZstdNet;
+using ZstdSharp;
+using ZstdSharp.Unsafe;
 
 namespace Arcana.Core.Compression.Formats;
 
 public class ZstdEngine : IArchiveFormat
 {
-    private readonly ILogger _log = Log.ForContext<ZstdEngine>();
+    private static readonly ILogger Log = Serilog.Log.ForContext<ZstdEngine>();
     public string Name => "Zstandard";
     public string Extension => ".zst";
     public bool CanRead => true;
@@ -23,133 +23,50 @@ public class ZstdEngine : IArchiveFormat
 
     public async Task<Archive> OpenAsync(string path, Stream stream, AccessMode mode, CancellationToken ct = default)
     {
-        _log.Verbose("Opening {Path} with mode {Mode}", path, mode);
+        var vfs = new VirtualFileSystem();
         try
         {
-            Stream readStream = stream;
-            if (Password != null)
-            {
-                _log.Warning("Password set on Zstandard archive which does not support native encryption");
-                var encOpts = new EncryptionOptions { Password = Password };
-                var provider = new EncryptionProvider(encOpts);
-                readStream = provider.CreateDecryptingStream(stream);
-            }
-
-            _log.Debug("Decompressing Zstandard data from {Path}", path);
-            var vfs = new Filesystem.VirtualFileSystem();
-            var entries = new List<ArchiveEntry>();
-
-            using var decompressor = new Decompressor();
-            using var ms = new MemoryStream();
-            await readStream.CopyToAsync(ms, ct).ConfigureAwait(false);
-            ms.Position = 0;
-
-            var raw = ms.ToArray();
-            var data = decompressor.Unwrap(raw);
-            var fileName = System.IO.Path.GetFileNameWithoutExtension(path) ?? "unknown";
-
-            vfs.AddFile(fileName, new MemoryStream(data));
-            entries.Add(new ArchiveEntry
-            {
-                Path = fileName,
-                Name = fileName,
-                Size = data.Length,
-                CompressedSize = raw.Length,
-                IsDirectory = false,
-                LastModified = DateTime.UtcNow,
-            });
-
-            _log.Information("Opened {Path} with 1 entry, size {Size} bytes", path, data.Length);
-            return new Archive
-            {
-                Format = CompressionFormat.Zstandard,
-                FormatEngine = this,
-                Entries = entries,
-                Vfs = vfs,
-            };
+            var input = LegacyArchiveEncryption.Open(stream, Password, [0x28, 0xB5, 0x2F, 0xFD]);
+            var legacy = !ReferenceEquals(input, stream);
+            using var decompressor = new DecompressionStream(input);
+            decompressor.SetParameter(ZSTD_dParameter.ZSTD_d_windowLogMax, 27);
+            var name = Path.GetFileNameWithoutExtension(path);
+            var node = await vfs.AddSpoolFileAsync(name, decompressor, ct).ConfigureAwait(false);
+            Log.Information("Opened Zstandard stream {Path} ({Size} bytes)", path, node.OriginalSize);
+            return new Archive { Format = CompressionFormat.Zstandard, FormatEngine = this, Vfs = vfs,
+                IsEncrypted = legacy, Password = Password,
+                Entries = [new ArchiveEntry { Path = name, Name = name, Size = node.OriginalSize,
+                    CompressedSize = stream.Length, LastModified = DateTime.UtcNow }] };
         }
-        catch (Exception ex)
-        {
-            _log.Error(ex, "Failed to open Zstandard archive {Path}", path);
-            throw;
-        }
+        catch (Exception ex) { vfs.Dispose(); Log.Error(ex, "Could not open Zstandard {Path}", path); throw; }
     }
 
     public void Save(Archive archive, Stream stream, CompressionOptions options,
-                     IProgress<ProgressReport>? progress = null, CancellationToken ct = default)
+        IProgress<ProgressReport>? progress = null, CancellationToken ct = default)
         => SaveAsync(archive, stream, options, progress, ct).GetAwaiter().GetResult();
 
     public async Task SaveAsync(Archive archive, Stream stream, CompressionOptions options,
-                                IProgress<ProgressReport>? progress = null, CancellationToken ct = default)
+        IProgress<ProgressReport>? progress = null, CancellationToken ct = default)
     {
-        _log.Verbose("Saving archive with {FileCount} files, level {Level}", archive.Vfs.Root.Children.Count, options.Level);
-        try
-        {
-            Stream writeStream = stream;
-            var encryptOnDispose = false;
-
-            if (options.Encryption?.Password != null)
-            {
-                _log.Debug("Encryption enabled for Zstandard save, algorithm {Algorithm}", options.Encryption.Algorithm);
-                var encOpts = new EncryptionOptions
-                {
-                    Password = options.Encryption.Password,
-                    Algorithm = options.Encryption.Algorithm,
-                    Kdf = options.Encryption.Kdf,
-                };
-                var provider = new EncryptionProvider(encOpts);
-                writeStream = provider.CreateEncryptingStream(stream);
-                encryptOnDispose = true;
-            }
-
-            var level = MapLevel(options.Level);
-            _log.Debug("Zstandard compression level set to {Level}", level);
-
-            foreach (var node in archive.Vfs.Root.Children)
-            {
-                ct.ThrowIfCancellationRequested();
-                if (node.Type == Filesystem.NodeType.File)
-                {
-                    await using var content = node.OpenRead();
-                    using var ms = new MemoryStream();
-                    await content.CopyToAsync(ms, ct).ConfigureAwait(false);
-
-                    var raw = ms.ToArray();
-                    using var compressor = new Compressor(new ZstdNet.CompressionOptions(level));
-                    var compressed = compressor.Wrap(raw);
-                    await writeStream.WriteAsync(compressed, ct).ConfigureAwait(false);
-
-                    progress?.Report(new ProgressReport
-                    {
-                        CurrentFile = node.Name,
-                        FilesProcessed = 1,
-                        TotalFiles = 1,
-                        CurrentOperation = "Compressing",
-                    });
-                }
-            }
-
-            if (encryptOnDispose)
-                writeStream.Dispose();
-
-            _log.Information("Saved Zstandard archive to stream");
-        }
-        catch (Exception ex)
-        {
-            _log.Error(ex, "Failed to save Zstandard archive");
-            throw;
-        }
+        if (options.Encryption?.Password != null)
+            throw new NotSupportedException("Zstandard has no native password protection. Use ZIP AES-256.");
+        if (archive.Vfs.Root.Children.Count != 1 || archive.Vfs.Root.Children[0].Type != NodeType.File)
+            throw new InvalidOperationException("Zstandard requires one file; use TAR + Zstandard for folders.");
+        var node = archive.Vfs.Root.Children[0];
+        await using var compressor = CreateCompressor(stream, options);
+        await using var content = node.OpenRead();
+        await content.CopyToAsync(compressor, ct).ConfigureAwait(false);
+        progress?.Report(new ProgressReport { CurrentFile = node.Name, FilesProcessed = 1, TotalFiles = 1, CurrentOperation = "Compressing" });
+        Log.Information("Saved Zstandard stream");
     }
 
-    private static int MapLevel(CompressionLevel level) => level switch
+    internal static CompressionStream CreateCompressor(Stream stream, CompressionOptions options)
     {
-        CompressionLevel.Store => 0,
-        CompressionLevel.Fastest => 1,
-        CompressionLevel.Fast => 3,
-        CompressionLevel.Normal => 5,
-        CompressionLevel.Maximum => 7,
-        CompressionLevel.Ultra => 9,
-        CompressionLevel.Insane => 10,
-        _ => 5,
-    };
+        var compressor = new CompressionStream(stream, Math.Clamp((int)options.Level, 1, 19), leaveOpen: true);
+        compressor.SetParameter(ZSTD_cParameter.ZSTD_c_checksumFlag, 1);
+        if (options.EnableParallel)
+            compressor.SetParameter(ZSTD_cParameter.ZSTD_c_nbWorkers, Math.Clamp(options.ThreadCount, 1, 16));
+        Log.Debug("Managed Zstandard compressor created (parallel {Parallel})", options.EnableParallel);
+        return compressor;
+    }
 }

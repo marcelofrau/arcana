@@ -15,7 +15,7 @@ internal sealed record IsoDirectoryEntry(
 /// Minimal ISO9660 reader. Parses the Primary Volume Descriptor (sector 16),
 /// prefers Joliet (supplementary volume descriptors with UCS-2 names) when
 /// present, then walks the directory hierarchy. Entries are metadata only —
-/// file bytes stay on disk and are exposed lazily via <see cref="IsoEntryStream"/>.
+/// file bytes stay on disk and are exposed lazily via <see cref="Filesystem.FileSliceStream"/>.
 /// </summary>
 internal sealed class Iso9660Reader
 {

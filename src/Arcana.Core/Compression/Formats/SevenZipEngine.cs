@@ -14,7 +14,7 @@ public class SevenZipEngine : IArchiveFormat
     public string Extension => ".7z";
     public bool CanRead => true;
     public bool CanWrite => true;
-    public bool CanEncrypt => true;
+    public bool CanEncrypt => false;
     public bool SupportsSolid => true;
     public bool SupportsVolumes => true;
     public string? Password { get; set; }
@@ -25,28 +25,26 @@ public class SevenZipEngine : IArchiveFormat
     public async Task<Archive> OpenAsync(string path, Stream stream, AccessMode mode, CancellationToken ct = default)
     {
         _log.Verbose("Opening {Path} with mode {Mode}", path, mode);
+        var vfs = new Filesystem.VirtualFileSystem();
         try
         {
-            Stream readStream = stream;
-            if (Password != null)
-            {
-                _log.Debug("Decrypting 7z archive with password");
-                var encOpts = new EncryptionOptions { Password = Password };
-                var provider = new EncryptionProvider(encOpts);
-                readStream = provider.CreateDecryptingStream(stream);
-            }
+            var readStream = LegacyArchiveEncryption.Open(stream, Password, [0x37, 0x7A, 0xBC, 0xAF, 0x27, 0x1C]);
 
             _log.Debug("Detected 7z format for {Path}", path);
-            var readerOptions = new ReaderOptions();
-
-            using var sevenZip = OpenForReading(readStream, readerOptions);
+            var nativeFile = stream is FileStream && ReferenceEquals(readStream, stream);
+            var readerOptions = new ReaderOptions { Password = Password, LeaveStreamOpen = !nativeFile };
+            using var sevenZip = nativeFile
+                ? (SharpCompress.Archives.IArchive)SevenZipArchive.OpenArchive(new FileInfo(path), readerOptions)
+                : OpenForReading(readStream, readerOptions);
             var entries = new List<ArchiveEntry>();
-            var vfs = new Filesystem.VirtualFileSystem();
-
-            foreach (var entry in sevenZip.Entries)
+            using var reader = sevenZip.ExtractAllEntries();
+            while (reader.MoveToNextEntry())
             {
                 ct.ThrowIfCancellationRequested();
+                var entry = reader.Entry;
                 var key = entry.Key ?? "";
+                if (entry.IsEncrypted && Password == null)
+                    throw new SharpCompress.Common.CryptographicException("Password required.");
 
                 if (entry.IsDirectory)
                 {
@@ -63,12 +61,8 @@ public class SevenZipEngine : IArchiveFormat
                     continue;
                 }
 
-                await using var entryStream = entry.OpenEntryStream();
-                var ms = new MemoryStream();
-                await entryStream.CopyToAsync(ms, ct).ConfigureAwait(false);
-                ms.Position = 0;
-
-                vfs.AddFile(key, ms);
+                await using var entryStream = reader.OpenEntryStream();
+                await vfs.AddSpoolFileAsync(key, entryStream, ct).ConfigureAwait(false);
 
                 entries.Add(new ArchiveEntry
                 {
@@ -90,11 +84,14 @@ public class SevenZipEngine : IArchiveFormat
                 FormatEngine = this,
                 Entries = entries,
                 Vfs = vfs,
-                IsEncrypted = sevenZip.IsEncrypted,
+                IsEncrypted = sevenZip.IsEncrypted || !ReferenceEquals(readStream, stream),
+                Password = Password,
+                SourcePaths = sevenZip.Volumes.Select(v => v.FileName).OfType<string>().Select(Path.GetFullPath).ToArray(),
             };
         }
         catch (Exception ex)
         {
+            vfs.Dispose();
             _log.Error(ex, "Failed to open 7z archive {Path}", path);
             throw;
         }
@@ -117,22 +114,7 @@ public class SevenZipEngine : IArchiveFormat
 
             if (options.Encryption?.Password != null)
             {
-                _log.Debug("Encryption enabled for 7z save, algorithm {Algorithm}", options.Encryption.Algorithm);
-                using var ms = new MemoryStream();
-                {
-                    using var writer = WriterFactory.OpenWriter(ms, ArchiveType.SevenZip, writerOptions);
-                    await WriteNodesAsync(writer, archive.Vfs.Root, progress, ct).ConfigureAwait(false);
-                }
-                ms.Position = 0;
-                var encOpts = new EncryptionOptions
-                {
-                    Password = options.Encryption.Password,
-                    Algorithm = options.Encryption.Algorithm,
-                    Kdf = options.Encryption.Kdf,
-                };
-                var provider = new EncryptionProvider(encOpts);
-                using var es = provider.CreateEncryptingStream(stream);
-                await ms.CopyToAsync(es, ct).ConfigureAwait(false);
+                throw new NotSupportedException("Encrypted 7z writing is not supported by the managed backend. Use ZIP AES-256.");
             }
             else
             {
@@ -158,10 +140,11 @@ public class SevenZipEngine : IArchiveFormat
     private static async Task WriteNodesAsync(IWriter writer, Filesystem.ArchiveNode node,
         IProgress<ProgressReport>? progress, CancellationToken ct)
     {
-        var totalFiles = CountFiles(node);
+        var nodes = Filesystem.VirtualFileSystem.Walk(node).Skip(1).ToList();
+        var totalFiles = nodes.Count(n => n.Type == Filesystem.NodeType.File);
         var filesDone = 0;
 
-        foreach (var child in node.Children)
+        foreach (var child in nodes)
         {
             ct.ThrowIfCancellationRequested();
             var entryPath = child.FullPath.TrimStart('/');
@@ -169,11 +152,11 @@ public class SevenZipEngine : IArchiveFormat
             if (child.Type == Filesystem.NodeType.Directory)
             {
                 writer.WriteDirectory(entryPath, child.LastModified);
-                await WriteNodesAsync(writer, child, progress, ct).ConfigureAwait(false);
             }
             else
             {
-                await using var content = child.OpenRead();
+                await using var content = new ProgressStream(child.OpenRead(), progress, child.Name, child.OriginalSize,
+                    filesDone, totalFiles, "Compressing", cancellationToken: ct);
                 writer.Write(entryPath, content, child.LastModified);
 
                 filesDone++;
@@ -186,14 +169,6 @@ public class SevenZipEngine : IArchiveFormat
                 });
             }
         }
-    }
-
-    private static int CountFiles(Filesystem.ArchiveNode node)
-    {
-        var count = 0;
-        foreach (var child in node.Children)
-            count += child.Type == Filesystem.NodeType.File ? 1 : CountFiles(child);
-        return count;
     }
 
     private static DateTime NormalizeTimestamp(DateTime? ts) =>

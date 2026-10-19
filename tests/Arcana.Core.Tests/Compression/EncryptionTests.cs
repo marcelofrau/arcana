@@ -63,18 +63,13 @@ public class EncryptionTests
     }
 
     [Fact]
-    public void SevenZipEngine_SaveAndOpen_WithPassword_ShouldRoundTrip()
+    public void SevenZipEngine_LegacyEnvelope_ShouldRemainReadable()
     {
         var engine = new SevenZipEngine();
         using var output = new MemoryStream();
         var archive = CreateArchive(engine, "secret.txt", Lorem);
 
-        var encOpts = new EncryptionOptions { Password = Password, KdfMemoryMB = 1 };
-        engine.Save(archive, output, new CompressionOptions
-        {
-            Format = CompressionFormat.SevenZip,
-            Encryption = encOpts,
-        });
+        WriteLegacySevenZip(engine, archive, output);
 
         output.Position = 0;
         engine.Password = Password;
@@ -98,12 +93,7 @@ public class EncryptionTests
         using var output = new MemoryStream();
         var archive = CreateArchive(engine, "secret.txt", Lorem);
 
-        var encOpts = new EncryptionOptions { Password = Password, KdfMemoryMB = 1 };
-        engine.Save(archive, output, new CompressionOptions
-        {
-            Format = CompressionFormat.SevenZip,
-            Encryption = encOpts,
-        });
+        WriteLegacySevenZip(engine, archive, output);
 
         output.Position = 0;
         engine.Password = WrongPassword;
@@ -112,18 +102,13 @@ public class EncryptionTests
     }
 
     [Fact]
-    public void ZstdEngine_SaveAndOpen_WithPassword_ShouldRoundTrip()
+    public void ZstdEngine_LegacyEnvelope_ShouldRemainReadable()
     {
         var engine = new ZstdEngine();
         using var output = new MemoryStream();
         var archive = CreateArchive(engine, "secret.txt", Lorem);
 
-        var encOpts = new EncryptionOptions { Password = Password, KdfMemoryMB = 1 };
-        engine.Save(archive, output, new CompressionOptions
-        {
-            Format = CompressionFormat.Zstandard,
-            Encryption = encOpts,
-        });
+        WriteLegacyZstd(engine, archive, output);
 
         output.Position = 0;
         engine.Password = Password;
@@ -146,17 +131,62 @@ public class EncryptionTests
         using var output = new MemoryStream();
         var archive = CreateArchive(engine, "secret.txt", Lorem);
 
-        var encOpts = new EncryptionOptions { Password = Password, KdfMemoryMB = 1 };
-        engine.Save(archive, output, new CompressionOptions
-        {
-            Format = CompressionFormat.Zstandard,
-            Encryption = encOpts,
-        });
+        WriteLegacyZstd(engine, archive, output);
 
         output.Position = 0;
         engine.Password = WrongPassword;
         var act = () => engine.Open("secret.zst", output, AccessMode.Read);
         act.Should().Throw<Exception>();
+    }
+
+    [Fact]
+    public void SevenZipEncryptedWrite_IsExplicitlyUnavailable()
+    {
+        var engine = new SevenZipEngine();
+        using var archive = CreateArchive(engine, "secret.txt", Lorem);
+        using var output = new MemoryStream();
+        Action act = () => engine.Save(archive, output, new CompressionOptions
+        {
+            Format = CompressionFormat.SevenZip,
+            Encryption = new EncryptionOptions { Password = Password },
+        });
+        act.Should().Throw<NotSupportedException>();
+        output.Length.Should().Be(0);
+    }
+
+    [Fact]
+    public void EncryptedZip_IsReadableByIndependentStandardReader()
+    {
+        var engine = new ZipEngine();
+        using var archive = CreateArchive(engine, "secret.txt", Lorem);
+        using var output = new MemoryStream();
+        engine.Save(archive, output, new CompressionOptions { Encryption = new EncryptionOptions { Password = Password } });
+        output.ToArray().Take(2).Should().Equal(0x50, 0x4B);
+        output.Position = 0;
+        using var standard = SharpCompress.Archives.Zip.ZipArchive.OpenArchive(output,
+            new SharpCompress.Readers.ReaderOptions { Password = Password });
+        using var content = standard.Entries.Single().OpenEntryStream();
+        using var decoded = new MemoryStream();
+        content.CopyTo(decoded);
+        decoded.ToArray().Should().Equal(Lorem);
+    }
+
+    private static void WriteLegacySevenZip(SevenZipEngine engine, Archive archive, Stream output)
+    {
+        using var plain = new MemoryStream();
+        engine.Save(archive, plain, new CompressionOptions { Format = CompressionFormat.SevenZip });
+        plain.Position = 0;
+        using var encrypted = new EncryptionProvider(new EncryptionOptions { Password = Password }).CreateEncryptingStream(output);
+        plain.CopyTo(encrypted);
+    }
+
+    private static void WriteLegacyZstd(ZstdEngine engine, Archive archive, Stream output)
+    {
+        using var plain = new MemoryStream();
+        engine.Save(archive, plain, new CompressionOptions { Format = CompressionFormat.Zstandard });
+        plain.Position = 0;
+        using var encrypted = new EncryptionProvider(new EncryptionOptions { Password = Password }).CreateEncryptingStream(output);
+        plain.CopyTo(encrypted);
     }
 
     private static Archive CreateArchive(IArchiveFormat engine, string fileName, byte[] content)

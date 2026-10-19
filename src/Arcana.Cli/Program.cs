@@ -15,7 +15,7 @@ public class Program
             Output.SetNoColor(true);
 
         var noColorOpt = new Option<bool>("--no-color") { Description = "Disable colored output", Recursive = true };
-        var logLevelOpt = new Option<string>("--log-level") { Description = "Log level: trace, debug, info, warn, error, fatal" };
+        var logLevelOpt = new Option<string>("--log-level") { Description = "Log level: trace, debug, info, warn, error, fatal", Recursive = true };
 
         var rootCommand = new RootCommand("Arcana — Modern, cross-platform compression toolkit");
         rootCommand.Add(noColorOpt);

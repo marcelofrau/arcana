@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Arcana
+Comment=Create, inspect and extract archives
+Exec=arcana-gui %f
+Icon=arcana
+Terminal=false
+Categories=Utility;Archiving;Compression;
+MimeType=application/zip;application/x-7z-compressed;application/vnd.rar;application/x-rar;application/x-tar;application/gzip;application/x-xz;application/zstd;

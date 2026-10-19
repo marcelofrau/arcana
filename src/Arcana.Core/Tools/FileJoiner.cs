@@ -1,88 +1,85 @@
 using System.Text.RegularExpressions;
 using Arcana.Core.Compression;
+using Arcana.Core.Filesystem;
 using Serilog;
 
 namespace Arcana.Core.Tools;
 
 public class FileJoiner
 {
-    private readonly ILogger _log = Serilog.Log.ForContext<FileJoiner>();
+    private static readonly ILogger Log = Serilog.Log.ForContext<FileJoiner>();
+    private static (string Base, int Number)? ParsePart(string path)
+    {
+        var name = Path.GetFileName(path);
+        var match = Regex.Match(name, @"^(.*)\.part(\d{3,})(\.[^/]*)?$", RegexOptions.CultureInvariant);
+        if (match.Success && int.TryParse(match.Groups[2].Value, out var part))
+            return (match.Groups[1].Value + ".part#" + match.Groups[3].Value, part);
+        match = Regex.Match(name, @"^(.*)\.(\d{3,})$", RegexOptions.CultureInvariant);
+        return match.Success && int.TryParse(match.Groups[2].Value, out part)
+            ? (match.Groups[1].Value + ".#", part) : null;
+    }
+
     public static List<string> AutoDiscoverParts(string path)
     {
-        if (Directory.Exists(path))
-        {
-            var dir = new DirectoryInfo(path);
-            var files = dir.GetFiles()
-                .Where(f => Regex.IsMatch(f.Extension, @"^\.[0-9]{3,4}$"))
-                .OrderBy(f => f.Extension)
-                .Select(f => f.FullName)
-                .ToList();
-            return files.Count > 0 ? files : throw new InvalidOperationException("No numbered part files found in directory");
-        }
-
-        var m = Regex.Match(Path.GetExtension(path), @"^\.(\d{3,4})$");
-        if (!m.Success)
-            throw new InvalidOperationException("Path does not match HJSplit naming (file.001, file.002...)");
-
-        var basePath = Path.Combine(
-            Path.GetDirectoryName(path)!,
-            Path.GetFileNameWithoutExtension(path));
-
-        var parts = new List<string>();
-        for (var i = 1; ; i++)
-        {
-            var partFile = $"{basePath}.{i:D3}";
-            if (!File.Exists(partFile)) break;
-            parts.Add(partFile);
-        }
-
-        return parts.Count > 0 ? parts : throw new InvalidOperationException($"No parts found for base: {basePath}");
+        var isDirectory = Directory.Exists(path);
+        var directory = isDirectory ? Path.GetFullPath(path) : Path.GetDirectoryName(Path.GetFullPath(path))!;
+        var requested = isDirectory ? null : ParsePart(path);
+        if (!isDirectory && requested == null)
+            throw new InvalidOperationException("Select a numbered part (.001 or .part001.ext).");
+        var candidates = Directory.EnumerateFiles(directory)
+            .Select(p => (Path: p, Part: ParsePart(p)))
+            .Where(p => p.Part != null && (isDirectory || p.Part.Value.Base == requested!.Value.Base))
+            .ToList();
+        if (candidates.Count == 0 || candidates.Select(p => p.Part!.Value.Base).Distinct().Count() != 1)
+            throw new InvalidOperationException("Select one part sequence; this directory has no parts or multiple sequences.");
+        var sorted = candidates.OrderBy(p => p.Part!.Value.Number).ToList();
+        for (var i = 0; i < sorted.Count; i++)
+            if (sorted[i].Part!.Value.Number != i + 1)
+                throw new InvalidOperationException($"Missing or duplicate part {i + 1}.");
+        Log.Debug("Discovered {Count} consecutive parts in {Directory}", sorted.Count, directory);
+        return sorted.Select(p => p.Path).ToList();
     }
 
     public void Join(IEnumerable<string> parts, string outputPath,
-                     IProgress<ProgressReport>? progress = null, CancellationToken ct = default)
-    {
-        JoinAsync(parts, outputPath, progress, ct).GetAwaiter().GetResult();
-    }
+        IProgress<ProgressReport>? progress = null, CancellationToken ct = default)
+        => JoinAsync(parts, outputPath, progress, ct).GetAwaiter().GetResult();
 
     public async Task JoinAsync(IEnumerable<string> parts, string outputPath,
-                                IProgress<ProgressReport>? progress = null, CancellationToken ct = default)
+        IProgress<ProgressReport>? progress = null, CancellationToken ct = default)
     {
-        var partList = parts.ToList();
-        _log.Information("Join start: {PartCount} parts", partList.Count);
-        _log.Debug("Parts: {@PartPaths}", partList);
-        var totalBytes = partList.Sum(GetFileSize);
-        var bytesDone = 0L;
-        var buffer = new byte[81920];
-
-        await using var output = File.Create(outputPath);
-
-        for (var i = 0; i < partList.Count; i++)
+        var list = parts.Select(Path.GetFullPath).ToList();
+        if (list.Count == 0 || list.Distinct().Count() != list.Count)
+            throw new ArgumentException("Provide a nonempty sequence without duplicate parts.", nameof(parts));
+        if (list.Any(p => p.Equals(Path.GetFullPath(outputPath), StringComparison.OrdinalIgnoreCase)))
+            throw new ArgumentException("Output must not replace an input part.", nameof(outputPath));
+        var parsed = list.Select(ParsePart).ToList();
+        if (parsed.All(p => p.HasValue))
         {
-            ct.ThrowIfCancellationRequested();
-            var partFile = partList[i];
-
-            _log.Verbose("Reading part {PartPath}", partFile);
-            await using var input = File.OpenRead(partFile);
-            int read;
-            while ((read = await input.ReadAsync(buffer, 0, buffer.Length, ct).ConfigureAwait(false)) > 0)
-            {
-                ct.ThrowIfCancellationRequested();
-                await output.WriteAsync(buffer, 0, read, ct).ConfigureAwait(false);
-                bytesDone += read;
-
-                progress?.Report(new ProgressReport
-                {
-                    CurrentFile = Path.GetFileName(partFile),
-                    BytesProcessed = bytesDone,
-                    TotalBytes = totalBytes,
-                    CurrentOperation = "Joining",
-                });
-            }
+            if (parsed.Select(p => p!.Value.Base).Distinct().Count() != 1
+                || parsed.Where((p, i) => p!.Value.Number != i + 1).Any())
+                throw new InvalidOperationException("Parts must belong to one consecutive sequence starting at 001.");
         }
-
-        _log.Information("Join complete: {Output}", outputPath);
+        var total = list.Sum(p => new FileInfo(p).Length);
+        var done = 0L;
+        Log.Information("Joining {Count} parts to {Path}", list.Count, outputPath);
+        await AtomicFile.WriteAsync(outputPath, async (output, token) =>
+        {
+            var buffer = new byte[81920];
+            foreach (var path in list)
+            {
+                token.ThrowIfCancellationRequested();
+                await using var input = File.OpenRead(path);
+                int read;
+                while ((read = await input.ReadAsync(buffer, token).ConfigureAwait(false)) > 0)
+                {
+                    await output.WriteAsync(buffer.AsMemory(0, read), token).ConfigureAwait(false);
+                    done += read;
+                    progress?.Report(new ProgressReport { CurrentFile = Path.GetFileName(path),
+                        BytesProcessed = done, TotalBytes = total, CurrentOperation = "Joining" });
+                }
+            }
+            if (done != total) throw new IOException("Part sizes changed while joining.");
+        }, ct).ConfigureAwait(false);
+        Log.Information("Join complete: {Path}", outputPath);
     }
-
-    private static long GetFileSize(string path) => new FileInfo(path).Length;
 }

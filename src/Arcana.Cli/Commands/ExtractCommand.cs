@@ -17,7 +17,7 @@ public static class ExtractCommand
         var command = new Command("extract", "Extract files from an archive");
 
         var archiveArg = new Argument<string>("archive") { Description = "Path to archive" };
-        var outputArg = new Argument<string>("output-directory") { Description = "Extraction target directory" };
+        var outputArg = new Argument<string>("output-directory") { Description = "Extraction target directory", DefaultValueFactory = _ => "." };
         var passwordOpt = new Option<string>("--password", "-p") { Description = "Decryption password" };
         var overwriteOpt = new Option<bool>("--overwrite") { Description = "Overwrite existing files" };
 
@@ -26,42 +26,20 @@ public static class ExtractCommand
         command.Add(passwordOpt);
         command.Add(overwriteOpt);
 
-        command.SetAction(async (ParseResult r) =>
+        command.SetAction(async (ParseResult r, CancellationToken ct) =>
         {
             var path = r.GetValue(archiveArg)!;
             var output = r.GetValue(outputArg) ?? ".";
             Log.Information("Extract start: {ArchivePath} -> {OutputDir}", path, output);
-            Directory.CreateDirectory(output);
+            using var archive = await ArchiveFactory.OpenAsync(path, r.GetValue(passwordOpt), ct: ct);
+            ExtractResult? result = null;
 
-            var archive = await ArchiveFactory.OpenAsync(path);
-            var nodes = WalkFiles(archive.Vfs.Root).Where(n => n.Type == NodeType.File).ToList();
-
-            if (nodes.Count == 0)
-            {
-                Output.Warning("Archive is empty");
-                return 0;
-            }
-
-            await Output.StartStatusAsync($"Extracting [cyan]{Path.GetFileName(path)}[/]",
+            await Output.StartStatusAsync($"Extracting [cyan]{Markup.Escape(Path.GetFileName(path))}[/]",
                 async ctx =>
                 {
-                    var count = 0;
                     try
                     {
-                        foreach (var node in nodes)
-                        {
-                            var entryPath = node.FullPath.TrimStart('/').Replace('/', Path.DirectorySeparatorChar);
-                            var destPath = Path.Combine(output, entryPath);
-
-                            ctx.Status = $"[cyan]{node.Name}[/]";
-                            Log.Debug("Extracting {EntryPath}", entryPath);
-
-                            Directory.CreateDirectory(Path.GetDirectoryName(destPath)!);
-                            await using var content = node.OpenRead();
-                            await using var dest = File.Create(destPath);
-                            await content.CopyToAsync(dest);
-                            count++;
-                        }
+                        result = await ArchiveExtractor.ExtractAsync([archive.Vfs.Root], output, r.GetValue(overwriteOpt), ct: ct);
                     }
                     catch (Exception ex)
                     {
@@ -70,19 +48,12 @@ public static class ExtractCommand
                     }
                 });
 
-            Log.Information("Extract complete: {FileCount} files", nodes.Count);
-            Output.Success($"Extracted [cyan]{nodes.Count}[/] {(nodes.Count == 1 ? "file" : "files")} to [cyan]{output}[/]");
+            Log.Information("Extract complete: {Extracted} extracted, {Skipped} skipped", result!.Extracted + result.Overwritten, result.Skipped);
+            Output.Success($"Extracted [cyan]{result.Extracted + result.Overwritten}[/] files to [cyan]{Markup.Escape(output)}[/]; skipped {result.Skipped}");
             return 0;
         });
 
         return command;
     }
 
-    private static IEnumerable<ArchiveNode> WalkFiles(ArchiveNode node)
-    {
-        yield return node;
-        foreach (var child in node.Children)
-        foreach (var descendant in WalkFiles(child))
-            yield return descendant;
-    }
 }

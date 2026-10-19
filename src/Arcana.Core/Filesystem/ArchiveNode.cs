@@ -7,6 +7,7 @@ public class ArchiveNode
     public NodeType Type { get; init; }
     public long OriginalSize { get; set; }
     public long CompressedSize { get; set; }
+    public uint? Crc32 { get; set; }
     public bool IsDirty { get; set; }
     public ArchiveNode? Parent { get; set; }
     public List<ArchiveNode> Children { get; set; } = new();

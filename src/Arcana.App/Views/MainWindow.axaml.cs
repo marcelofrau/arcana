@@ -4,11 +4,16 @@ using Avalonia.Controls;
 using Avalonia.Threading;
 using Arcana.App.Services;
 using Arcana.App.ViewModels;
+using Serilog;
+using System.Threading.Tasks;
 
 namespace Arcana.App.Views;
 
 public partial class MainWindow : Window
 {
+    private static readonly ILogger Log = Serilog.Log.ForContext<MainWindow>();
+    private bool _closeApproved;
+    private bool _closingPrompt;
     private readonly DispatcherTimer _magicTimer;
 
     private double _phase;
@@ -46,7 +51,29 @@ public partial class MainWindow : Window
     protected override void OnClosed(EventArgs e)
     {
         _magicTimer.Stop();
+        if (DataContext is MainViewModel vm) vm.ReleaseResources();
         base.OnClosed(e);
+    }
+
+    protected override void OnClosing(WindowClosingEventArgs e)
+    {
+        base.OnClosing(e);
+        if (_closeApproved || DataContext is not MainViewModel vm) return;
+        e.Cancel = true;
+        if (!_closingPrompt) _ = RequestCloseAsync(vm);
+    }
+
+    private async Task RequestCloseAsync(MainViewModel vm)
+    {
+        _closingPrompt = true;
+        try
+        {
+            if (!await vm.ConfirmCloseAsync()) return;
+            _closeApproved = true;
+            Close();
+        }
+        catch (Exception ex) { Log.Error(ex, "Could not finish closing the archive"); }
+        finally { _closingPrompt = false; }
     }
 
     private void OnMagicTick(object? sender, EventArgs e)

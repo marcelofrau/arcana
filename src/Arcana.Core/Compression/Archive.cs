@@ -12,6 +12,9 @@ public class Archive : IDisposable
     public IReadOnlyList<ArchiveEntry> Entries { get; init; } = Array.Empty<ArchiveEntry>();
     public VirtualFileSystem Vfs { get; init; } = new();
     public bool IsEncrypted { get; init; }
+    internal string? Password { get; set; }
+    public IReadOnlyList<string> SourcePaths { get; internal set; } = Array.Empty<string>();
+    public bool IsMultiVolume => SourcePaths.Count > 1;
     public string? Comment { get; set; }
 
     public ArchiveEntry? FindEntry(string path)
@@ -39,6 +42,8 @@ public class Archive : IDisposable
             node.OriginalSize = entry.Size;
             node.CompressedSize = entry.CompressedSize;
             node.LastModified = entry.LastModified;
+            node.Crc32 = Format is CompressionFormat.Zip or CompressionFormat.SevenZip or CompressionFormat.Rar
+                && !entry.IsDirectory && !(entry.IsEncrypted && entry.Crc32 == 0) ? entry.Crc32 : null;
         }
     }
 
@@ -46,6 +51,7 @@ public class Archive : IDisposable
     {
         Log.Debug("Archive disposed ({Format})", Format);
         Vfs.Dispose();
+        Password = null;
         GC.SuppressFinalize(this);
     }
 }

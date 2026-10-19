@@ -73,7 +73,9 @@
                     </MenuItem.Icon>
                 </MenuItem>
                 <Separator/>
-                <MenuItem Header="{l:Loc Key=menu.file.saveCopyAs}" Command="{Binding SaveCopyAsCommand}" InputGesture="Ctrl+S">
+                <MenuItem Header="{l:Loc Key=common.save}" Command="{Binding SaveArchiveCommand}" InputGesture="Ctrl+S"/>
+                <MenuItem Header="{l:Loc Key=msg.addFolder}" Command="{Binding AddFolderCommand}"/>
+                <MenuItem Header="{l:Loc Key=menu.file.saveCopyAs}" Command="{Binding SaveCopyAsCommand}" InputGesture="Ctrl+Shift+S">
                     <MenuItem.Icon>
                         <Image Tag="{x:Static icons:IconKey.Save}" Width="18" Height="18" Stretch="Uniform"
                                Source="{Binding Tag, RelativeSource={RelativeSource Self}, Converter={StaticResource IconToImage}}"/>

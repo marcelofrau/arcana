@@ -22,7 +22,7 @@ public static class JoinCommand
         command.Add(partsArg);
         command.Add(outputOpt);
 
-        command.SetAction(async (ParseResult r) =>
+        command.SetAction(async (ParseResult r, CancellationToken ct) =>
         {
             var raw = r.GetValue(partsArg)!;
             var output = r.GetValue(outputOpt) ?? "output";
@@ -64,13 +64,13 @@ public static class JoinCommand
                     var progress = new Progress<ProgressReport>(report =>
                     {
                         task.Value = report.BytesProcessed;
-                        task.Description = report.CurrentFile ?? "Joining...";
+                        task.Description = Markup.Escape(report.CurrentFile ?? "Joining...");
                     });
 
                     try
                     {
                         var joiner = new FileJoiner();
-                        await joiner.JoinAsync(parts, output, progress);
+                        await joiner.JoinAsync(parts, output, progress, ct);
                     }
                     catch (Exception ex)
                     {
@@ -79,7 +79,7 @@ public static class JoinCommand
                     }
                 });
 
-            Output.Success($"Created [cyan]{Path.GetFileName(output)}[/] from [cyan]{parts.Length}[/] parts");
+            Output.Success($"Created [cyan]{Markup.Escape(Path.GetFileName(output))}[/] from [cyan]{parts.Length}[/] parts");
             return 0;
         });
 

@@ -1,7 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:Arcana.App.ViewModels"
-        xmlns:svc="using:Arcana.App.Services"
+        xmlns:svc="clr-namespace:Arcana.Core.Compression;assembly=Arcana.Core"
         xmlns:l="using:Arcana.App.Localization"
         xmlns:icons="using:Arcana.App.Icons"
         x:Class="Arcana.App.Views.Dialogs.ExtractCompleteDialog"

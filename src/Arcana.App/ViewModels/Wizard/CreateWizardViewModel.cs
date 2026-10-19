@@ -12,10 +12,16 @@ namespace Arcana.App.ViewModels.Wizard;
 
 public sealed class CreateWizardViewModel : WizardViewModel<CreateWizardResult>
 {
-    public CreateWizardViewModel(string? defaultPath = null)
+    public CreateWizardViewModel(string? defaultPath = null, IReadOnlyList<string>? initialFiles = null)
     {
         if (!string.IsNullOrWhiteSpace(defaultPath))
             _destinationStep.ArchivePath = defaultPath;
+        if (initialFiles != null) _filesStep.AddFiles(initialFiles);
+        _destinationStep.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(CreateDestinationStep.SelectedFormat))
+                _passwordStep.CanEncrypt = _destinationStep.SelectedFormat.Value == "zip";
+        };
     }
 
     private readonly CreateDestinationStep _destinationStep = new();
@@ -69,7 +75,7 @@ public sealed partial class CreateFilesStep : WizardStepViewModel
 
     public void AddFiles(IEnumerable<string> paths)
     {
-        foreach (var path in paths.Where(File.Exists))
+        foreach (var path in paths.Where(p => File.Exists(p) || Directory.Exists(p)))
             Files.Add(new FileItem(Path.GetFileName(path), path));
         NotifyStateChanged();
     }
@@ -86,6 +92,14 @@ public sealed record FileItem(string Name, string Path);
 
 public sealed partial class CreatePasswordStep : WizardStepViewModel
 {
+    [ObservableProperty]
+    private bool _canEncrypt = true;
+
+    partial void OnCanEncryptChanged(bool value)
+    {
+        if (!value) { Password = ""; Confirm = ""; }
+        NotifyStateChanged();
+    }
     [ObservableProperty]
     private string _password = "";
 

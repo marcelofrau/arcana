@@ -35,4 +35,13 @@ public partial class CreateFilesStepView : UserControl
         }
         vm.AddFiles(paths);
     }
+
+    private async void OnAddFolderClick(object? sender, RoutedEventArgs e)
+    {
+        if (TopLevel.GetTopLevel(this)?.StorageProvider is not { } storage || DataContext is not CreateFilesStep vm)
+            return;
+        var folders = await storage.OpenFolderPickerAsync(new FolderPickerOpenOptions { AllowMultiple = true, Title = T("msg.addFolder") });
+        foreach (var folder in folders)
+            if (folder.TryGetLocalPath() is { } path) vm.AddFiles([path]);
+    }
 }

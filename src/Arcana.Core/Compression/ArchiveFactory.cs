@@ -80,6 +80,7 @@ public static class ArchiveFactory
         var engine = (read >= 4, header) switch
         {
             (true, [0x50, 0x4B, 0x03, 0x04, ..]) => GetFormat(CompressionFormat.Zip),
+            (true, [0x50, 0x4B, 0x05, 0x06, ..]) => GetFormat(CompressionFormat.Zip),
             (true, [0x37, 0x7A, 0xBC, 0xAF, 0x27, 0x1C, ..]) => GetFormat(CompressionFormat.SevenZip),
             (true, [0x28, 0xB5, 0x2F, 0xFD, ..]) => GetFormat(CompressionFormat.Zstandard),
             (true, [0x1F, 0x8B, ..]) => GetFormat(CompressionFormat.GZip),
@@ -104,7 +105,10 @@ public static class ArchiveFactory
         var format = GetFormatFromPathOrHeader(path, stream);
         SetPassword(format, password);
         var archive = format.Open(path, stream, mode);
+        archive.Password = password;
+        if (archive.SourcePaths.Count == 0) archive.SourcePaths = [Path.GetFullPath(path)];
         archive.SyncNodeMetadata();
+        archive.Vfs.MarkAllClean();
         return archive;
     }
 
@@ -152,11 +156,14 @@ public static class ArchiveFactory
         Log.Information("Opening archive {Path}", path);
         try
         {
-            var stream = File.OpenRead(path);
+            using var stream = File.OpenRead(path);
             var format = GetFormatFromPathOrHeader(path, stream);
             SetPassword(format, password);
             var archive = await format.OpenAsync(path, stream, mode, ct);
+            archive.Password = password;
+            if (archive.SourcePaths.Count == 0) archive.SourcePaths = [Path.GetFullPath(path)];
             archive.SyncNodeMetadata();
+            archive.Vfs.MarkAllClean();
             return archive;
         }
         catch (Exception ex)
@@ -170,6 +177,8 @@ public static class ArchiveFactory
     {
         Log.Verbose("Detecting format for {Path}", path);
         var lower = Path.GetExtension(path).ToLowerInvariant();
+        if (lower is ".tgz" or ".tbz2" or ".txz" or ".tzst")
+            return GetFormatFromExtension(lower);
         if (lower == ".gz" || lower == ".bz2" || lower == ".xz" || lower == ".zst")
         {
             var baseName = Path.GetFileNameWithoutExtension(path);
@@ -187,6 +196,11 @@ public static class ArchiveFactory
         }
         catch (NotSupportedException)
         {
+            if (lower is ".zip" or ".7z" or ".br" or ".lzma" or ".snappy" or ".zst" or ".zstd")
+            {
+                Log.Debug("Using extension for legacy/envelope or signatureless input {Path}", path);
+                return GetFormatFromExtension(lower);
+            }
             Log.Warning("No header match for {Path}, trying Hawkynt fallback", path);
             var fallback = new Formats.HawkyntFallbackEngine();
             if (fallback.FindDescriptor(path, stream) is not null)

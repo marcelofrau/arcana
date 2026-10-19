@@ -6,7 +6,7 @@ namespace Arcana.Core.Compression.Formats;
 /// ISO9660 (CD/DVD disk image) engine. ISO stores files raw, so opening is pure
 /// metadata parsing (Primary Volume Descriptor + directory records) and entry
 /// content is served lazily straight from the source file via
-/// <see cref="IsoEntryStream"/> — nothing is extracted into memory.
+/// <see cref="Filesystem.FileSliceStream"/> — nothing is extracted into memory.
 /// </summary>
 public class IsoEngine : IArchiveFormat
 {
@@ -52,7 +52,7 @@ public class IsoEngine : IArchiveFormat
                 var filePath = path;
                 var offset = iso.Offset;
                 var length = iso.Length;
-                vfs.AddLazyFile(iso.FullPath, () => new IsoEntryStream(filePath, offset, length));
+                vfs.AddLazyFile(iso.FullPath, () => new Filesystem.FileSliceStream(filePath, offset, length));
 
                 entries.Add(new ArchiveEntry
                 {

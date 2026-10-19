@@ -23,16 +23,17 @@ public sealed class ProgressStream : Stream
     private readonly long _totalBytes;
     private readonly Stopwatch _stopwatch = Stopwatch.StartNew();
     private readonly bool _isOutput;
+    private readonly bool _leaveOpen;
+    private readonly CancellationToken _cancellationToken;
 
     private long _read;
     private long _written;
-    private long _bytesSinceReport;
     private long _lastReportMs;
 
     public ProgressStream(Stream inner, IProgress<ProgressReport>? progress,
         string? currentFile = null, long totalBytes = 0,
         int filesProcessed = 0, int totalFiles = 0,
-        string? operation = null, bool isOutput = false)
+        string? operation = null, bool isOutput = false, bool leaveOpen = false, CancellationToken cancellationToken = default)
     {
         _inner = inner;
         _progress = progress;
@@ -42,6 +43,8 @@ public sealed class ProgressStream : Stream
         _totalFiles = totalFiles;
         _operation = operation;
         _isOutput = isOutput;
+        _leaveOpen = leaveOpen;
+        _cancellationToken = cancellationToken;
     }
 
     public override bool CanRead => _inner.CanRead;
@@ -57,6 +60,7 @@ public sealed class ProgressStream : Stream
 
     public override int Read(byte[] buffer, int offset, int count)
     {
+        _cancellationToken.ThrowIfCancellationRequested();
         var n = _inner.Read(buffer, offset, count);
         if (n > 0)
         {
@@ -68,6 +72,7 @@ public sealed class ProgressStream : Stream
 
     public override int Read(Span<byte> buffer)
     {
+        _cancellationToken.ThrowIfCancellationRequested();
         var n = _inner.Read(buffer);
         if (n > 0)
         {
@@ -79,6 +84,8 @@ public sealed class ProgressStream : Stream
 
     public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
     {
+        _cancellationToken.ThrowIfCancellationRequested();
+        if (!cancellationToken.CanBeCanceled) cancellationToken = _cancellationToken;
         var n = await _inner.ReadAsync(buffer, cancellationToken).ConfigureAwait(false);
         if (n > 0)
         {
@@ -90,6 +97,7 @@ public sealed class ProgressStream : Stream
 
     public override void Write(byte[] buffer, int offset, int count)
     {
+        _cancellationToken.ThrowIfCancellationRequested();
         _inner.Write(buffer, offset, count);
         _written += count;
         MaybeReport();
@@ -97,6 +105,7 @@ public sealed class ProgressStream : Stream
 
     public override void Write(ReadOnlySpan<byte> buffer)
     {
+        _cancellationToken.ThrowIfCancellationRequested();
         _inner.Write(buffer);
         _written += buffer.Length;
         MaybeReport();
@@ -104,6 +113,8 @@ public sealed class ProgressStream : Stream
 
     public override async ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default)
     {
+        _cancellationToken.ThrowIfCancellationRequested();
+        if (!cancellationToken.CanBeCanceled) cancellationToken = _cancellationToken;
         await _inner.WriteAsync(buffer, cancellationToken).ConfigureAwait(false);
         _written += buffer.Length;
         MaybeReport();
@@ -118,13 +129,13 @@ public sealed class ProgressStream : Stream
     {
         if (disposing)
             Report(final: true);
-        _inner.Dispose();
+        if (disposing && !_leaveOpen)
+            _inner.Dispose();
         base.Dispose(disposing);
     }
 
     private void MaybeReport()
     {
-        _bytesSinceReport += _isOutput ? 1 : 1; // counted via _written/_read deltas below
         var now = _stopwatch.ElapsedMilliseconds;
         var changed = _isOutput ? _written : _read;
         if (changed - _lastBytesAtReport >= ReportIntervalBytes || now - _lastReportMs >= ReportIntervalMs)

@@ -5,6 +5,7 @@ using SharpCompress.Common;
 using SharpCompress.Readers;
 using SharpCompress.Writers;
 using Serilog;
+using ICSharpCode.SharpZipLib.Zip;
 
 namespace Arcana.Core.Compression.Formats;
 
@@ -26,28 +27,48 @@ public class ZipEngine : IArchiveFormat
     public async Task<Archive> OpenAsync(string path, Stream stream, AccessMode mode, CancellationToken ct = default)
     {
         _log.Verbose("Opening {Path} with mode {Mode}", path, mode);
+        var vfs = new Filesystem.VirtualFileSystem();
         try
         {
-            Stream readStream = stream;
-            if (Password != null)
+            Stream owned;
+            if (stream is FileStream file)
+                owned = new FileStream(file.Name, FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete);
+            else
             {
-                _log.Debug("Decrypting ZIP archive with password");
-                var encOpts = new EncryptionOptions { Password = Password };
-                var provider = new EncryptionProvider(encOpts);
-                readStream = provider.CreateDecryptingStream(stream);
+                owned = new MemoryStream();
+                await stream.CopyToAsync(owned, ct).ConfigureAwait(false);
+                owned.Position = 0;
             }
+            vfs.Own(owned);
+            var readStream = LegacyArchiveEncryption.Open(owned, Password, [0x50, 0x4B]);
+            if (!ReferenceEquals(readStream, owned)) vfs.Own(readStream);
 
             _log.Debug("Detected ZIP format for {Path}", path);
-            var readerOptions = new ReaderOptions();
+            var readerOptions = new ReaderOptions { Password = Password };
 
-            var zip = OpenForReading(readStream, readerOptions);
+            var multiVolume = stream is FileStream && ReferenceEquals(readStream, owned)
+                && (path.EndsWith(".001", StringComparison.OrdinalIgnoreCase) || File.Exists(Path.ChangeExtension(path, ".z01")));
+            var zip = multiVolume
+                ? (IArchive)SharpCompress.Archives.Zip.ZipArchive.OpenArchive(new FileInfo(path),
+                    new ReaderOptions { Password = Password, LeaveStreamOpen = false })
+                : OpenForReading(readStream, readerOptions);
+            vfs.Own(zip);
+            var gate = new SemaphoreSlim(1, 1);
             var entries = new List<ArchiveEntry>();
-            var vfs = new Filesystem.VirtualFileSystem();
+            var passwordChecked = false;
 
             foreach (var entry in zip.Entries)
             {
                 ct.ThrowIfCancellationRequested();
                 var key = entry.Key ?? "";
+                if (entry.IsEncrypted && Password == null)
+                    throw new SharpCompress.Common.CryptographicException("Password required.");
+                if (entry.IsEncrypted && !entry.IsDirectory && !passwordChecked)
+                {
+                    using var check = entry.OpenEntryStream();
+                    _ = check.ReadByte();
+                    passwordChecked = true;
+                }
 
                 if (entry.IsDirectory)
                 {
@@ -64,12 +85,15 @@ public class ZipEngine : IArchiveFormat
                     continue;
                 }
 
-                await using var entryStream = entry.OpenEntryStream();
-                var ms = new MemoryStream();
-                await entryStream.CopyToAsync(ms, ct).ConfigureAwait(false);
-                ms.Position = 0;
-
-                vfs.AddFile(key, ms);
+                var node = vfs.AddLazyFile(key, () =>
+                {
+                    gate.Wait();
+                    try { return new Filesystem.ArchiveEntryStream(entry.OpenEntryStream(), entry.Size, gate); }
+                    catch (Exception ex) { gate.Release(); _log.Warning(ex, "Could not open ZIP entry {Path}", key); throw; }
+                });
+                node.OriginalSize = entry.Size;
+                node.Crc32 = entry.IsEncrypted && entry.Crc == 0 ? null : (uint)entry.Crc;
+                node.LastModified = NormalizeTimestamp(entry.LastModifiedTime);
 
                 entries.Add(new ArchiveEntry
                 {
@@ -91,11 +115,14 @@ public class ZipEngine : IArchiveFormat
                 FormatEngine = this,
                 Entries = entries,
                 Vfs = vfs,
-                IsEncrypted = zip.IsEncrypted,
+                IsEncrypted = zip.IsEncrypted || !ReferenceEquals(readStream, owned),
+                Password = Password,
+                SourcePaths = zip.Volumes.Select(v => v.FileName).OfType<string>().Select(Path.GetFullPath).ToArray(),
             };
         }
         catch (Exception ex)
         {
+            vfs.Dispose();
             _log.Error(ex, "Failed to open ZIP archive {Path}", path);
             throw;
         }
@@ -111,36 +138,44 @@ public class ZipEngine : IArchiveFormat
         _log.Verbose("Saving archive with {FileCount} files, level {Level}", archive.Vfs.Root.Children.Count, options.Level);
         try
         {
-            var level = MapLevel(options.Level);
-            _log.Debug("ZIP compression level mapped to {Level}", level);
-            var writerOptions = new WriterOptions(CompressionType.Deflate, level)
+            var password = options.Encryption?.Password;
+            using var writer = new ZipOutputStream(stream) { IsStreamOwner = false, Password = password,
+                UseZip64 = UseZip64.Dynamic };
+            writer.SetLevel(Math.Clamp((int)options.Level, 0, 9));
+            if (password != null) _log.Information("Writing standard ZIP AES-256 encryption");
+            var nodes = Flatten(archive.Vfs.Root).ToList();
+            var total = nodes.Count(n => n.Type == Filesystem.NodeType.File);
+            var done = 0;
+            foreach (var node in nodes)
             {
-                LeaveStreamOpen = true,
-            };
-
-            Stream writeStream = stream;
-            var encryptOnDispose = false;
-
-            if (options.Encryption?.Password != null)
-            {
-                _log.Debug("Encryption enabled for ZIP save, algorithm {Algorithm}", options.Encryption.Algorithm);
-                var encOpts = new EncryptionOptions
+                ct.ThrowIfCancellationRequested();
+                var directory = node.Type == Filesystem.NodeType.Directory;
+                var name = node.FullPath.TrimStart('/') + (directory ? "/" : "");
+                var entry = new ICSharpCode.SharpZipLib.Zip.ZipEntry(name)
                 {
-                    Password = options.Encryption.Password,
-                    Algorithm = options.Encryption.Algorithm,
-                    Kdf = options.Encryption.Kdf,
+                    IsUnicodeText = true,
+                    DateTime = node.LastModified.Year >= 1980 ? node.LastModified : new DateTime(1980, 1, 1),
+                    AESKeySize = !directory && password != null ? 256 : 0,
                 };
-                var provider = new EncryptionProvider(encOpts);
-                writeStream = provider.CreateEncryptingStream(stream);
-                encryptOnDispose = true;
+                writer.Password = directory ? null : password;
+                if (directory)
+                {
+                    entry.Size = 0;
+                    writer.PutNextEntry(entry);
+                }
+                else
+                {
+                    await using var content = node.OpenRead();
+                    if (content.CanSeek) entry.Size = content.Length;
+                    writer.PutNextEntry(entry);
+                    await content.CopyToAsync(writer, ct).ConfigureAwait(false);
+                    progress?.Report(new ProgressReport { CurrentFile = node.Name, FilesProcessed = ++done,
+                        TotalFiles = total, CurrentOperation = "Compressing" });
+                }
+                writer.CloseEntry();
             }
-
-            {
-                using var writer = WriterFactory.OpenWriter(writeStream, ArchiveType.Zip, writerOptions);
-                await WriteNodesAsync(writer, archive.Vfs.Root, progress, ct).ConfigureAwait(false);
-            }
-            if (encryptOnDispose)
-                writeStream.Dispose();
+            ct.ThrowIfCancellationRequested();
+            writer.Finish();
 
             _log.Information("Saved ZIP archive to stream");
         }
@@ -153,61 +188,17 @@ public class ZipEngine : IArchiveFormat
 
     private static IArchive OpenForReading(Stream stream, ReaderOptions options)
     {
-        return (IArchive)(object)ZipArchive.OpenArchive(stream, options);
+        return (IArchive)(object)SharpCompress.Archives.Zip.ZipArchive.OpenArchive(stream, options);
     }
 
-    private static async Task WriteNodesAsync(IWriter writer, Filesystem.ArchiveNode node,
-        IProgress<ProgressReport>? progress, CancellationToken ct)
+    private static IEnumerable<Filesystem.ArchiveNode> Flatten(Filesystem.ArchiveNode node)
     {
-        var totalFiles = CountFiles(node);
-        var filesDone = 0;
-
         foreach (var child in node.Children)
         {
-            ct.ThrowIfCancellationRequested();
-            var entryPath = child.FullPath.TrimStart('/');
-
-            if (child.Type == Filesystem.NodeType.Directory)
-            {
-                writer.WriteDirectory(entryPath, child.LastModified);
-                await WriteNodesAsync(writer, child, progress, ct).ConfigureAwait(false);
-            }
-            else
-            {
-                await using var content = child.OpenRead();
-                writer.Write(entryPath, content, child.LastModified);
-
-                filesDone++;
-                progress?.Report(new ProgressReport
-                {
-                    CurrentFile = child.Name,
-                    FilesProcessed = filesDone,
-                    TotalFiles = totalFiles,
-                    CurrentOperation = "Compressing",
-                });
-            }
+            yield return child;
+            foreach (var descendant in Flatten(child)) yield return descendant;
         }
     }
-
-    private static int CountFiles(Filesystem.ArchiveNode node)
-    {
-        var count = 0;
-        foreach (var child in node.Children)
-            count += child.Type == Filesystem.NodeType.File ? 1 : CountFiles(child);
-        return count;
-    }
-
-    private static int MapLevel(CompressionLevel level) => level switch
-    {
-        CompressionLevel.Store => 0,
-        CompressionLevel.Fastest => 1,
-        CompressionLevel.Fast => 3,
-        CompressionLevel.Normal => 5,
-        CompressionLevel.Maximum => 7,
-        CompressionLevel.Ultra => 9,
-        CompressionLevel.Insane => 9,
-        _ => 5,
-    };
 
     private static DateTime NormalizeTimestamp(DateTime? ts) =>
         ts is { Year: >= 1980 } ? ts.Value : DateTime.MinValue;

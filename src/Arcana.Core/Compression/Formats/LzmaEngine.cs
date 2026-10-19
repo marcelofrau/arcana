@@ -33,10 +33,9 @@ public class LzmaEngine : IArchiveFormat
             }
 
             _log.Debug("Decompressing LZMA data from {Path}", path);
-            using var decompressor = SharpCompress.Compressors.LZMA.LZipStream.Create(
-                readStream, CompressionMode.Decompress, true);
-            using var ms = new MemoryStream();
-            await decompressor.CopyToAsync(ms, ct).ConfigureAwait(false);
+            var ms = new MemoryStream();
+            ct.ThrowIfCancellationRequested();
+            FileFormat.Lzma.LzmaStream.Decompress(readStream, ms);
             ms.Position = 0;
 
             var fileName = System.IO.Path.GetFileNameWithoutExtension(path) ?? "unknown";
@@ -105,9 +104,8 @@ public class LzmaEngine : IArchiveFormat
                 if (node.Type is not Filesystem.NodeType.File) continue;
 
                 await using var content = node.OpenRead();
-                using var compressor = SharpCompress.Compressors.LZMA.LZipStream.Create(
-                    writeStream, CompressionMode.Compress, true);
-                await content.CopyToAsync(compressor, ct).ConfigureAwait(false);
+                FileFormat.Lzma.LzmaStream.Compress(content, writeStream);
+                ct.ThrowIfCancellationRequested();
 
                 progress?.Report(new ProgressReport
                 {

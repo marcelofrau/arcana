@@ -14,8 +14,9 @@
     <PackageReference Include="Serilog.Sinks.Console" Version="6.1.1" />
     <PackageReference Include="Serilog.Sinks.File" Version="6.0.0" />
     <PackageReference Include="SharpCompress" Version="0.50.1" />
+    <PackageReference Include="SharpZipLib" Version="1.4.2" />
     <PackageReference Include="Snappy.Sharp" Version="1.0.0" />
-    <PackageReference Include="ZstdNet" Version="1.5.7" />
+    <PackageReference Include="ZstdSharp.Port" Version="0.8.8" />
   </ItemGroup>
 
 </Project>

@@ -23,7 +23,7 @@
             <DataGridTemplateColumn Header="{l:Loc Key=filetable.name}" SortMemberPath="Name" Width="2*">
                 <DataGridTemplateColumn.CellTemplate>
                     <DataTemplate x:DataType="vm:FileEntryItem">
-                        <Border Padding="8,0">
+                        <Border Padding="8,0" ToolTip.Tip="{Binding Node.FullPath}">
                             <StackPanel Orientation="Horizontal" Spacing="6">
                                 <Image Source="{Binding Icon, Converter={StaticResource IconToImage}}"
                                        Width="16" Height="16" Stretch="Uniform"

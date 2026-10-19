@@ -1,5 +1,5 @@
 using System.Collections.Generic;
-using Arcana.App.Services;
+using Arcana.Core.Compression;
 using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace Arcana.App.ViewModels;

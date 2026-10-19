@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
+using Avalonia.Platform.Storage;
 using Microsoft.Extensions.DependencyInjection;
 using Serilog;
 using Arcana.App.Icons;
@@ -61,6 +62,36 @@ public partial class App : Application
             {
                 DataContext = provider.GetRequiredService<MainViewModel>()
             };
+            if (this.TryGetFeature<IActivatableLifetime>() is { } activatable)
+            {
+                activatable.Activated += async (_, activation) =>
+                {
+                    if (activation is not FileActivatedEventArgs files || files.Files.FirstOrDefault()?.TryGetLocalPath() is not { } path)
+                        return;
+                    if (desktop.MainWindow.DataContext is not MainViewModel vm) return;
+                    Log.Information("File activation: {Path}", path);
+                    if (desktop.MainWindow.IsVisible) await vm.OpenPathAsync(path);
+                    else desktop.MainWindow.Opened += async (_, _) => await vm.OpenPathAsync(path);
+                };
+            }
+            if (desktop.Args is { Length: > 0 } args)
+            {
+                desktop.MainWindow.Opened += async (_, _) =>
+                {
+                    if (desktop.MainWindow.DataContext is MainViewModel vm)
+                    {
+                        if (args[0] == "--create")
+                            await vm.CreateFromPathsAsync(args.Skip(1).ToArray());
+                        else if (args[0] == "--extract" && args.Length == 2)
+                        {
+                            await vm.OpenPathAsync(args[1]);
+                            if (vm.Archive.HasArchive) await vm.ExtractCommand.ExecuteAsync(null);
+                        }
+                        else
+                            await vm.OpenPathAsync(args[0]);
+                    }
+                };
+            }
         }
 
         base.OnFrameworkInitializationCompleted();

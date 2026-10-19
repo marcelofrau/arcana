@@ -1,7 +1,7 @@
 using System.Globalization;
 using Avalonia.Data.Converters;
 using Arcana.App.Localization;
-using Arcana.App.Services;
+using Arcana.Core.Compression;
 
 namespace Arcana.App.Converters;
 

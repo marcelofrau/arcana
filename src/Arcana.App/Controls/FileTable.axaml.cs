@@ -10,6 +10,7 @@ using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using Arcana.App.ViewModels;
 using Arcana.Core.Filesystem;
+using Arcana.Core.Compression;
 using Serilog;
 
 namespace Arcana.App.Controls;
@@ -58,7 +59,7 @@ public partial class FileTable : UserControl
 
     private void OnDoubleTapped(object? sender, TappedEventArgs e)
     {
-        Vm?.Archive.OpenItemCommand.Execute(null);
+        Vm?.OpenSelectedCommand.Execute(null);
     }
 
     private void OnSelectionChanged(object? sender, SelectionChangedEventArgs e)
@@ -82,7 +83,7 @@ public partial class FileTable : UserControl
                 e.Handled = true;
                 break;
             case Key.Enter:
-                Vm?.Archive.OpenItemCommand.Execute(null);
+                Vm?.OpenSelectedCommand.Execute(null);
                 e.Handled = true;
                 break;
             case Key.Back:
@@ -114,7 +115,7 @@ public partial class FileTable : UserControl
             return;
 
         var node = FindNodeAt(e);
-        if (node == null || node.Type != NodeType.File)
+        if (node == null || node == Vm?.Archive.CurrentNode?.Parent)
             return;
 
         _pressArgs = e;
@@ -170,7 +171,7 @@ public partial class FileTable : UserControl
         var nodes = archive.SelectedNodes.Contains(pressedNode)
             ? archive.SelectedNodes
             : new[] { pressedNode };
-        var files = nodes.Where(n => n.Type == NodeType.File).ToList();
+        var files = nodes.ToList();
         if (files.Count == 0)
             return;
 
@@ -178,17 +179,7 @@ public partial class FileTable : UserControl
         Directory.CreateDirectory(tempDir);
         try
         {
-            foreach (var file in files)
-            {
-                var rel = file.FullPath.TrimStart('/');
-                var target = Path.Combine(tempDir, rel);
-                var parentDir = Path.GetDirectoryName(target);
-                if (!string.IsNullOrEmpty(parentDir))
-                    Directory.CreateDirectory(parentDir);
-                await using var src = file.OpenRead();
-                await using var dst = File.Create(target);
-                await src.CopyToAsync(dst);
-            }
+            await ArchiveExtractor.ExtractAsync(files, tempDir);
 
             var storageProvider = TopLevel.GetTopLevel(Grid)?.StorageProvider;
             if (storageProvider == null)
@@ -197,8 +188,10 @@ public partial class FileTable : UserControl
             var transfer = new DataTransfer();
             foreach (var file in files)
             {
-                var path = Path.Combine(tempDir, file.FullPath.TrimStart('/'));
-                var storageFile = await storageProvider.TryGetFileFromPathAsync(new Uri(path));
+                var path = ArchiveExtractor.GetDestinationPath(tempDir, file.FullPath);
+                IStorageItem? storageFile = file.Type == NodeType.Directory
+                    ? await storageProvider.TryGetFolderFromPathAsync(new Uri(path))
+                    : await storageProvider.TryGetFileFromPathAsync(new Uri(path));
                 if (storageFile != null)
                     transfer.Add(DataTransferItem.CreateFile(storageFile));
             }
@@ -213,7 +206,8 @@ public partial class FileTable : UserControl
         }
         finally
         {
-            try { Directory.Delete(tempDir, recursive: true); } catch { /* best effort */ }
+            try { Directory.Delete(tempDir, recursive: true); }
+            catch (Exception ex) { Log.Warning(ex, "Could not clean drag temporary {Path}", tempDir); }
         }
     }
 

@@ -17,14 +17,16 @@ public static class ConvertCommand
         var sourceArg = new Argument<string>("source") { Description = "Source archive" };
         var outputOpt = new Option<string>("--output", "-o") { Description = "Output archive path", Required = true };
         var formatOpt = new Option<string>("--format", "-f") { Description = "Output format (auto if omitted)" };
-        var levelOpt = new Option<int>("--level", "-l") { Description = "Compression level" };
+        var levelOpt = new Option<int>("--level", "-l") { Description = "Compression level", DefaultValueFactory = _ => 5 };
+        var passwordOpt = new Option<string>("--password", "-p") { Description = "Source archive password (preserved on output)" };
 
         command.Add(sourceArg);
         command.Add(outputOpt);
         command.Add(formatOpt);
         command.Add(levelOpt);
+        command.Add(passwordOpt);
 
-        command.SetAction(async (ParseResult r) =>
+        command.SetAction(async (ParseResult r, CancellationToken ct) =>
         {
             var source = r.GetValue(sourceArg)!;
             var output = r.GetValue(outputOpt)!;
@@ -43,27 +45,23 @@ public static class ConvertCommand
             Log.Information("Convert {Source} ({SourceFormat}) -> {Output} ({TargetFormat})",
                 source, sourceFormat, output, targetFormatName);
 
-            await Output.StartStatusAsync($"Converting [cyan]{Path.GetFileName(source)}[/]",
+            await Output.StartStatusAsync($"Converting [cyan]{Markup.Escape(Path.GetFileName(source))}[/]",
                 async ctx =>
                 {
                     try
                     {
-                        var sourceArchive = await ArchiveFactory.OpenAsync(source);
+                        using var sourceArchive = await ArchiveFactory.OpenAsync(source, r.GetValue(passwordOpt), ct: ct);
 
                         var targetFormat = formatName != null
-                            ? ArchiveFactory.GetFormatFromExtension($".{formatName}")
-                            : ArchiveFactory.GetFormatFromExtension(Path.GetExtension(output));
+                            ? ArchiveFormats.Parse(formatName) : ArchiveFormats.FromPath(output);
 
                         var options = new CompressionOptions
                         {
-                            Format = ParseFormat(formatName ?? Path.GetExtension(output).TrimStart('.')),
+                            Format = targetFormat,
                             Level = (CompressionLevel)Math.Clamp(level, 0, 10),
                         };
 
-                        await using var outputStream = File.Create(output);
-                        await targetFormat.SaveAsync(sourceArchive, outputStream, options);
-
-                        sourceArchive.Dispose();
+                        await ArchiveWriter.SaveAsync(sourceArchive, output, options, ct: ct);
                     }
                     catch (Exception ex)
                     {
@@ -73,20 +71,12 @@ public static class ConvertCommand
                 });
 
             var fi = new FileInfo(output);
-            Output.Success($"Created [cyan]{Path.GetFileName(output)}[/] [dim]({FormatSize(fi.Length)})[/]");
+            Output.Success($"Created [cyan]{Markup.Escape(Path.GetFileName(output))}[/] [dim]({FormatSize(fi.Length)})[/]");
             return 0;
         });
 
         return command;
     }
-
-    private static CompressionFormat ParseFormat(string name) => name.ToLowerInvariant() switch
-    {
-        "zip" => CompressionFormat.Zip,
-        "7z" or "sevenzip" => CompressionFormat.SevenZip,
-        "zst" or "zstd" => CompressionFormat.Zstandard,
-        _ => CompressionFormat.Zip,
-    };
 
     private static string FormatSize(long bytes) => bytes switch
     {

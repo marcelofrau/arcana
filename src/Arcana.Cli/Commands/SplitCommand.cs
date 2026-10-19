@@ -25,7 +25,7 @@ public static class SplitCommand
         command.Add(outputOpt);
         command.Add(hjsplitOpt);
 
-        command.SetAction(async (ParseResult r) =>
+        command.SetAction(async (ParseResult r, CancellationToken ct) =>
         {
             var file = r.GetValue(fileArg)!;
             var partSizeStr = r.GetValue(partSizeOpt) ?? "100M";
@@ -43,20 +43,20 @@ public static class SplitCommand
             var totalParts = (int)Math.Ceiling((double)fi.Length / partSize);
             Log.Information("Split {File} into {PartCount} parts ({PartSize})", file, totalParts, partSizeStr);
 
-            await Output.StartProgressAsync($"Splitting [cyan]{Path.GetFileName(file)}[/] into {totalParts} parts",
+            await Output.StartProgressAsync($"Splitting [cyan]{Markup.Escape(Path.GetFileName(file))}[/] into {totalParts} parts",
                 async ctx =>
                 {
                     var task = ctx.AddTask("Splitting", maxValue: fi.Length);
                     var progress = new Progress<ProgressReport>(report =>
                     {
                         task.Value = report.BytesProcessed;
-                        task.Description = report.CurrentFile ?? "Splitting...";
+                        task.Description = Markup.Escape(report.CurrentFile ?? "Splitting...");
                     });
 
                     try
                     {
                         var splitter = new FileSplitter();
-                        await splitter.SplitAsync(file, outputDir, partSize, progress, hjsplitMode: hjsplit);
+                        await splitter.SplitAsync(file, outputDir, partSize, progress, ct, hjsplitMode: hjsplit);
                     }
                     catch (Exception ex)
                     {
@@ -66,7 +66,7 @@ public static class SplitCommand
                 });
 
             var suffix = hjsplit ? " (HJSplit format)" : "";
-            Output.Success($"Split into [cyan]{totalParts}[/] parts in [cyan]{outputDir}[/]{suffix}");
+            Output.Success($"Split into [cyan]{totalParts}[/] parts in [cyan]{Markup.Escape(outputDir)}[/]{suffix}");
             return 0;
         });
 
@@ -84,6 +84,8 @@ public static class SplitCommand
             _ => 1,
         };
         var numStr = multiplier > 1 ? value[..^1] : value;
-        return long.TryParse(numStr, out var num) ? num * multiplier : 100 * (1L << 20);
+        if (!long.TryParse(numStr, out var num) || num <= 0 || num > long.MaxValue / multiplier)
+            throw new ArgumentException("Part size must be positive, for example 100M or 1G.", nameof(value));
+        return num * multiplier;
     }
 }

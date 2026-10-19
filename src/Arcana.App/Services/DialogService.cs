@@ -13,6 +13,7 @@ using Arcana.App.ViewModels.Wizard;
 using Arcana.App.Views.Dialogs;
 using Arcana.App.Views.Wizards;
 using Serilog;
+using Arcana.Core.Compression;
 
 namespace Arcana.App.Services;
 
@@ -222,6 +223,38 @@ public sealed class DialogService
         await ShowDialogAsync(dialog);
     }
 
+    public async Task<UnsavedChoice> ConfirmUnsavedAsync()
+    {
+        if (MainWindow == null) return UnsavedChoice.Cancel;
+        var choice = UnsavedChoice.Cancel;
+        var vm = new InfoViewModel(T("msg.unsavedTitle"), T("msg.unsavedDetail"), T("common.save"),
+            () => choice = UnsavedChoice.Save)
+        {
+            SecondActionButtonText = T("common.discard"),
+            SecondAction = () => choice = UnsavedChoice.Discard,
+            DismissText = T("common.cancel"),
+        };
+        await ShowDialogAsync(new InfoDialog { DataContext = vm });
+        Log.Debug("Unsaved changes decision: {Choice}", choice);
+        return choice;
+    }
+
+    public async Task<ConflictDecision> ResolveConflictAsync(string path)
+    {
+        if (MainWindow == null) return new ConflictDecision(ConflictAction.Cancel);
+        var action = ConflictAction.Cancel;
+        var vm = new InfoViewModel(T("msg.fileExists"), path, T("msg.replace"), () => action = ConflictAction.Replace)
+        {
+            SecondActionButtonText = T("msg.keepBoth"),
+            SecondAction = () => action = ConflictAction.Rename,
+            DismissText = T("msg.skip"),
+            DismissAction = () => action = ConflictAction.Skip,
+            ShowApplyToAll = true,
+        };
+        await ShowDialogAsync(new InfoDialog { DataContext = vm });
+        return new ConflictDecision(action, vm.ApplyToAll);
+    }
+
     /// <summary>
     /// Shows the rich archive/file properties dialog (header, property list and
     /// the WinACE-style cylinder chart showing compressed vs original size).
@@ -368,11 +401,11 @@ public sealed class DialogService
 
     private Task ShowDialogAsync(Window dialog) => ModalHost.ShowAsync(MainWindow!, dialog);
 
-    public async Task<CreateWizardResult?> ShowCreateWizardAsync(string? defaultPath = null)
+    public async Task<CreateWizardResult?> ShowCreateWizardAsync(string? defaultPath = null, IReadOnlyList<string>? initialFiles = null)
     {
         if (MainWindow == null)
             return null;
-        return await WizardWindow.ShowAsync(MainWindow, new CreateWizardViewModel(defaultPath));
+        return await WizardWindow.ShowAsync(MainWindow, new CreateWizardViewModel(defaultPath, initialFiles));
     }
 
     public async Task<ExtractWizardResult?> ShowExtractWizardAsync(string? defaultDestination = null, string? archiveFolderName = null)

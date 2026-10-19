@@ -7,7 +7,7 @@ using SharpCompress.Compressors.Deflate;
 using SharpCompress.Compressors.Xz;
 using SharpCompress.Writers;
 using Serilog;
-using ZstdNet;
+using ZstdSharp;
 
 namespace Arcana.Core.Compression.Formats;
 
@@ -28,15 +28,15 @@ public class TarEngine : IArchiveFormat
     public async Task<Archive> OpenAsync(string path, Stream stream, AccessMode mode, CancellationToken ct = default)
     {
         _log.Verbose("Opening {Path} with mode {Mode}", path, mode);
+        var vfs = new Filesystem.VirtualFileSystem();
         try
         {
             var detectedFormat = DetectFormat(path);
             _log.Debug("Detected tar format {Format} for {Path}", detectedFormat, path);
-            using var tarStream = await DecompressToMemoryAsync(stream, detectedFormat, ct).ConfigureAwait(false);
+            using var tarStream = await DecompressToDiskAsync(stream, detectedFormat, ct).ConfigureAwait(false);
             using var archive = (IArchive)(object)TarArchive.OpenArchive(tarStream, null);
 
             var entries = new List<ArchiveEntry>();
-            var vfs = new Filesystem.VirtualFileSystem();
 
             foreach (var entry in archive.Entries)
             {
@@ -59,11 +59,7 @@ public class TarEngine : IArchiveFormat
                 }
 
                 await using var entryStream = entry.OpenEntryStream();
-                var ms = new MemoryStream();
-                await entryStream.CopyToAsync(ms, ct).ConfigureAwait(false);
-                ms.Position = 0;
-
-                vfs.AddFile(key, ms);
+                await vfs.AddSpoolFileAsync(key, entryStream, ct).ConfigureAwait(false);
 
                 entries.Add(new ArchiveEntry
                 {
@@ -88,6 +84,7 @@ public class TarEngine : IArchiveFormat
         }
         catch (Exception ex)
         {
+            vfs.Dispose();
             _log.Error(ex, "Failed to open tar archive {Path}", path);
             throw;
         }
@@ -105,26 +102,23 @@ public class TarEngine : IArchiveFormat
         {
             if (options.Format == CompressionFormat.TarXz)
             {
-                _log.Warning("Xz-compressed tar writing is not supported");
-                throw new NotSupportedException("Xz-compressed tar writing is not supported");
+                _log.Debug("Writing TAR with managed XZ compression");
+                using var xz = new FileFormat.Xz.XzStream(stream,
+                    global::Compression.Core.Streams.CompressionStreamMode.Compress, leaveOpen: true);
+                using var tarWriter = WriterFactory.OpenWriter(xz, ArchiveType.Tar,
+                    new WriterOptions(CompressionType.None) { LeaveStreamOpen = true });
+                await WriteNodesAsync(tarWriter, archive.Vfs.Root, progress, ct).ConfigureAwait(false);
+                return;
             }
 
             if (options.Format == CompressionFormat.TarZstd)
             {
                 _log.Debug("Saving tar archive with Zstd compression");
-                using var ms = new MemoryStream();
-                {
-                    using var tarWriter = WriterFactory.OpenWriter(ms, ArchiveType.Tar,
-                        new WriterOptions(CompressionType.None) { LeaveStreamOpen = true });
-                    await WriteNodesAsync(tarWriter, archive.Vfs.Root, progress, ct).ConfigureAwait(false);
-                }
-                ms.Position = 0;
-                var raw = ms.ToArray();
-                using var compressor = new Compressor(new ZstdNet.CompressionOptions(3));
-                var compressed = compressor.Wrap(raw);
-                await stream.WriteAsync(compressed, ct).ConfigureAwait(false);
-
-                _log.Information("Saved tar archive to stream with Zstd compression, size {Size} bytes", compressed.Length);
+                using var compressor = ZstdEngine.CreateCompressor(stream, options);
+                using var tarWriter = WriterFactory.OpenWriter(compressor, ArchiveType.Tar,
+                    new WriterOptions(CompressionType.None) { LeaveStreamOpen = true });
+                await WriteNodesAsync(tarWriter, archive.Vfs.Root, progress, ct).ConfigureAwait(false);
+                _log.Information("Saved TAR + Zstandard stream");
                 return;
             }
 
@@ -143,50 +137,40 @@ public class TarEngine : IArchiveFormat
         }
     }
 
-    private static async Task<MemoryStream> DecompressToMemoryAsync(Stream stream, CompressionFormat format, CancellationToken ct)
+    private static async Task<Stream> DecompressToDiskAsync(Stream stream, CompressionFormat format, CancellationToken ct)
     {
-        var result = new MemoryStream();
-
-        if (format == CompressionFormat.Tar)
+        var result = Filesystem.ArchiveTemporaryFile.Create();
+        try
         {
-            await stream.CopyToAsync(result, ct).ConfigureAwait(false);
+            using Stream input = format switch
+            {
+                CompressionFormat.Tar => new Filesystem.NonDisposingReadStream(stream),
+                CompressionFormat.TarGz => new GZipStream(stream, CompressionMode.Decompress),
+                CompressionFormat.TarBz2 => BZip2Stream.Create(stream, CompressionMode.Decompress, false, false, false),
+                CompressionFormat.TarXz => new XZStream(stream),
+                CompressionFormat.TarZstd => new DecompressionStream(stream),
+                _ => throw new NotSupportedException($"Unsupported TAR wrapper: {format}"),
+            };
+            await ArchiveContent.CopyBoundedAsync(input, result, ArchiveLimits.MaxExpandedBytes, ct).ConfigureAwait(false);
+            result.Position = 0;
+            return result;
         }
-        else if (format == CompressionFormat.TarGz)
+        catch (Exception ex)
         {
-            using var gz = new GZipStream(stream, CompressionMode.Decompress);
-            await gz.CopyToAsync(result, ct).ConfigureAwait(false);
+            Log.Warning(ex, "Could not spool TAR content");
+            await result.DisposeAsync();
+            throw;
         }
-        else if (format == CompressionFormat.TarBz2)
-        {
-            using var bz2 = BZip2Stream.Create(stream, CompressionMode.Decompress, false, false, false);
-            await bz2.CopyToAsync(result, ct).ConfigureAwait(false);
-        }
-        else if (format == CompressionFormat.TarXz)
-        {
-            using var xz = new XZStream(stream);
-            await xz.CopyToAsync(result, ct).ConfigureAwait(false);
-        }
-        else if (format == CompressionFormat.TarZstd)
-        {
-            using var ms = new MemoryStream();
-            await stream.CopyToAsync(ms, ct).ConfigureAwait(false);
-            var raw = ms.ToArray();
-            using var decompressor = new Decompressor();
-            var uncompressed = decompressor.Unwrap(raw);
-            await result.WriteAsync(uncompressed, ct).ConfigureAwait(false);
-        }
-
-        result.Position = 0;
-        return result;
     }
 
     private static async Task WriteNodesAsync(IWriter writer, Filesystem.ArchiveNode node,
         IProgress<ProgressReport>? progress, CancellationToken ct)
     {
-        var totalFiles = CountFiles(node);
+        var nodes = Filesystem.VirtualFileSystem.Walk(node).Skip(1).ToList();
+        var totalFiles = nodes.Count(n => n.Type == Filesystem.NodeType.File);
         var filesDone = 0;
 
-        foreach (var child in node.Children)
+        foreach (var child in nodes)
         {
             ct.ThrowIfCancellationRequested();
             var entryPath = child.FullPath.TrimStart('/');
@@ -194,12 +178,15 @@ public class TarEngine : IArchiveFormat
             if (child.Type == Filesystem.NodeType.Directory)
             {
                 writer.WriteDirectory(entryPath, child.LastModified);
-                await WriteNodesAsync(writer, child, progress, ct).ConfigureAwait(false);
             }
             else
             {
-                await using var content = child.OpenRead();
-                writer.Write(entryPath, content, child.LastModified);
+                await using var content = new ProgressStream(child.OpenRead(), progress, child.Name, child.OriginalSize,
+                    filesDone, totalFiles, "Compressing", cancellationToken: ct);
+                if (writer is SharpCompress.Writers.Tar.TarWriter tar)
+                    tar.Write(entryPath, content, child.LastModified, content.CanSeek ? content.Length : child.OriginalSize);
+                else
+                    writer.Write(entryPath, content, child.LastModified);
 
                 filesDone++;
                 progress?.Report(new ProgressReport
@@ -211,14 +198,6 @@ public class TarEngine : IArchiveFormat
                 });
             }
         }
-    }
-
-    private static int CountFiles(Filesystem.ArchiveNode node)
-    {
-        var count = 0;
-        foreach (var child in node.Children)
-            count += child.Type == Filesystem.NodeType.File ? 1 : CountFiles(child);
-        return count;
     }
 
     private static (ArchiveType, CompressionType) GetFormatSettings(CompressionFormat format) => format switch

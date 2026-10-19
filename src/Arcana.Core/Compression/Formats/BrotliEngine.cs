@@ -21,6 +21,7 @@ public class BrotliEngine : IArchiveFormat
     public async Task<Archive> OpenAsync(string path, Stream stream, AccessMode mode, CancellationToken ct = default)
     {
         _log.Verbose("Opening {Path} with mode {Mode}", path, mode);
+        var vfs = new Filesystem.VirtualFileSystem();
         try
         {
             Stream readStream = stream;
@@ -33,13 +34,8 @@ public class BrotliEngine : IArchiveFormat
 
             _log.Debug("Decompressing Brotli data from {Path}", path);
             using var decompressor = new System.IO.Compression.BrotliStream(readStream, System.IO.Compression.CompressionMode.Decompress);
-            using var ms = new MemoryStream();
-            await decompressor.CopyToAsync(ms, ct).ConfigureAwait(false);
-            ms.Position = 0;
-
             var fileName = System.IO.Path.GetFileNameWithoutExtension(path) ?? "unknown";
-            var vfs = new Filesystem.VirtualFileSystem();
-            vfs.AddFile(fileName, ms);
+            var node = await vfs.AddSpoolFileAsync(fileName, decompressor, ct).ConfigureAwait(false);
 
             var entries = new List<ArchiveEntry>
             {
@@ -47,24 +43,27 @@ public class BrotliEngine : IArchiveFormat
                 {
                     Path = fileName,
                     Name = fileName,
-                    Size = ms.Length,
+                    Size = node.OriginalSize,
                     CompressedSize = stream.Length,
                     IsDirectory = false,
                     LastModified = DateTime.UtcNow,
                 }
             };
 
-            _log.Information("Opened {Path} with 1 entry, size {Size} bytes", path, ms.Length);
+            _log.Information("Opened {Path} with 1 entry, size {Size} bytes", path, node.OriginalSize);
             return new Archive
             {
                 Format = CompressionFormat.Brotli,
                 FormatEngine = this,
                 Entries = entries,
                 Vfs = vfs,
+                IsEncrypted = Password != null,
+                Password = Password,
             };
         }
         catch (Exception ex)
         {
+            vfs.Dispose();
             _log.Error(ex, "Failed to open Brotli archive {Path}", path);
             throw;
         }

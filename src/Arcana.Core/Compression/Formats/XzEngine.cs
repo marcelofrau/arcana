@@ -22,6 +22,7 @@ public class XzEngine : IArchiveFormat
     public async Task<Archive> OpenAsync(string path, Stream stream, AccessMode mode, CancellationToken ct = default)
     {
         _log.Verbose("Opening {Path} with mode {Mode}", path, mode);
+        var vfs = new Filesystem.VirtualFileSystem();
         try
         {
             Stream readStream = stream;
@@ -33,15 +34,9 @@ public class XzEngine : IArchiveFormat
             }
 
             _log.Debug("Decompressing Xz data from {Path}", path);
-            using var decompressor = SharpCompress.Compressors.LZMA.LZipStream.Create(
-                readStream, CompressionMode.Decompress, true);
-            using var ms = new MemoryStream();
-            await decompressor.CopyToAsync(ms, ct).ConfigureAwait(false);
-            ms.Position = 0;
-
+            using var decompressor = new SharpCompress.Compressors.Xz.XZStream(readStream);
             var fileName = System.IO.Path.GetFileNameWithoutExtension(path) ?? "unknown";
-            var vfs = new Filesystem.VirtualFileSystem();
-            vfs.AddFile(fileName, ms);
+            var node = await vfs.AddSpoolFileAsync(fileName, decompressor, ct).ConfigureAwait(false);
 
             var entries = new List<ArchiveEntry>
             {
@@ -49,24 +44,27 @@ public class XzEngine : IArchiveFormat
                 {
                     Path = fileName,
                     Name = fileName,
-                    Size = ms.Length,
+                    Size = node.OriginalSize,
                     CompressedSize = stream.Length,
                     IsDirectory = false,
                     LastModified = DateTime.UtcNow,
                 }
             };
 
-            _log.Information("Opened {Path} with 1 entry, size {Size} bytes", path, ms.Length);
+            _log.Information("Opened {Path} with 1 entry, size {Size} bytes", path, node.OriginalSize);
             return new Archive
             {
                 Format = CompressionFormat.Xz,
                 FormatEngine = this,
                 Entries = entries,
                 Vfs = vfs,
+                IsEncrypted = Password != null,
+                Password = Password,
             };
         }
         catch (Exception ex)
         {
+            vfs.Dispose();
             _log.Error(ex, "Failed to open Xz archive {Path}", path);
             throw;
         }
@@ -105,8 +103,8 @@ public class XzEngine : IArchiveFormat
                 if (node.Type is not Filesystem.NodeType.File) continue;
 
                 await using var content = node.OpenRead();
-                using var compressor = SharpCompress.Compressors.LZMA.LZipStream.Create(
-                    writeStream, CompressionMode.Compress, true);
+                using var compressor = new FileFormat.Xz.XzStream(writeStream,
+                    global::Compression.Core.Streams.CompressionStreamMode.Compress, leaveOpen: true);
                 await content.CopyToAsync(compressor, ct).ConfigureAwait(false);
 
                 progress?.Report(new ProgressReport

@@ -15,7 +15,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ ubuntu-latest, windows-latest ]
+        os: [ ubuntu-latest, windows-latest, macos-latest ]
     runs-on: ${{ matrix.os }}
     steps:
     - uses: actions/checkout@v4
@@ -44,10 +44,10 @@ jobs:
         include:
           - os: windows-latest
             rid: win-x64
-            script: powershell -File build/build-release.ps1 -Version $VERSION -Arch x64
+            script: powershell -File build/build-release.ps1 -Version "$VERSION" -Arch x64 -Installer
           - os: windows-latest
             rid: win-arm64
-            script: powershell -File build/build-release.ps1 -Version $VERSION -Arch arm64
+            script: powershell -File build/build-release.ps1 -Version "$VERSION" -Arch arm64 -Installer
           - os: ubuntu-latest
             rid: linux-x64
             script: bash build/build-release.sh "$VERSION" x64
@@ -69,6 +69,15 @@ jobs:
       with:
         dotnet-version: '10.0.x'
 
+    - name: Ensure installer compiler
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        if (!(Test-Path "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe")) {
+          choco install innosetup --yes --no-progress
+          if ($LASTEXITCODE -ne 0) { throw 'Could not install Inno Setup' }
+        }
+
     - name: Build release
       shell: bash
       env:
@@ -88,8 +97,8 @@ jobs:
         zip="${zips[0]}"
         echo "Verifying: $(basename "$zip")"
         case "${{ matrix.rid }}" in
-          win-*) expected="Arcana.App.exe" ;;
-          *)     expected="Arcana.App" ;;
+          win-*) expected="Arcana.App/Arcana.App.exe" ;;
+          *)     expected="Arcana.App/Arcana.App" ;;
         esac
         if unzip -Z1 "$zip" 2>/dev/null | grep -qxF "$expected"; then
           echo "✅ '$expected' present"
@@ -129,7 +138,8 @@ jobs:
         echo "## ✅ SHA256 Checksums" >> release-body.md
         echo "" >> release-body.md
         echo '```' >> release-body.md
-        (cd dist && sha256sum *) >> release-body.md
+        (cd dist && sha256sum Arcana-*) > dist/SHA256SUMS.txt
+        cat dist/SHA256SUMS.txt >> release-body.md
         echo '```' >> release-body.md
         echo "" >> release-body.md
         echo "VirusTotal scan in progress — results appended automatically." >> release-body.md

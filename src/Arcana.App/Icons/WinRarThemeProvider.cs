@@ -226,38 +226,5 @@ public sealed class WinRarThemeProvider : IIconProvider
         => Directory.EnumerateDirectories(root, name, SearchOption.AllDirectories).FirstOrDefault();
 
     private static void ExtractVfs(ArchiveNode node, string destRoot)
-    {
-        var stack = new Stack<ArchiveNode>();
-        foreach (var child in node.Children)
-            stack.Push(child);
-
-        while (stack.Count > 0)
-        {
-            var current = stack.Pop();
-            var target = Path.Combine(destRoot, current.FullPath.TrimStart('/').Replace('/', Path.DirectorySeparatorChar));
-
-            if (current.Type == NodeType.Directory)
-            {
-                Directory.CreateDirectory(target);
-                foreach (var child in current.Children)
-                    stack.Push(child);
-                continue;
-            }
-
-            var parent = Path.GetDirectoryName(target);
-            if (!string.IsNullOrEmpty(parent))
-                Directory.CreateDirectory(parent);
-
-            try
-            {
-                using var src = current.OpenRead();
-                using var dst = File.Create(target);
-                src.CopyTo(dst);
-            }
-            catch (Exception ex)
-            {
-                Log.Warning(ex, "Skipping theme file {Path}", current.FullPath);
-            }
-        }
-    }
+        => ArchiveExtractor.ExtractAsync([node], destRoot).GetAwaiter().GetResult();
 }

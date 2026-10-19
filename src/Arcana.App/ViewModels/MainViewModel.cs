@@ -85,6 +85,8 @@ public partial class MainViewModel : ObservableObject
     private Avalonia.Controls.GridLength _previewPaneWidth = new(320);
 
     private string? _currentPath;
+    private string? _currentPassword;
+    private readonly List<string> _externalDirectories = [];
 
     public IconThemeService IconThemes => _themes;
     public ColorThemeService ColorThemes => _colorThemes;
@@ -240,14 +242,57 @@ public partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private async Task NewArchive()
+    private async Task OpenSelected()
     {
-        var choice = await _dialogs.ShowCreateWizardAsync();
+        if (Archive.SelectedItem is not { } item) return;
+        if (item.IsDirectory)
+        {
+            Archive.NavigateTo(item.Node);
+            return;
+        }
+        var directory = Path.Combine(Path.GetTempPath(), "ArcanaOpen", Guid.NewGuid().ToString("N"));
+        _externalDirectories.Add(directory);
+        if (!await RunProgressAsync(T("msg.busy.extracting"), false, item.Node.OriginalSize,
+            async (progress, ct) => { await ArchiveExtractor.ExtractAsync([item.Node], directory, progress: progress, ct: ct); })) return;
+        try
+        {
+            var path = ArchiveExtractor.GetDestinationPath(directory, item.Node.FullPath);
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(path) { UseShellExecute = true });
+            Log.Information("Opened extracted file with its associated application: {Path}", path);
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Could not open associated application");
+            await _dialogs.ShowInfoAsync(T("msg.error"), ex.Message);
+        }
+    }
+
+    public void ReleaseResources()
+    {
+        Preview.Clear();
+        Archive.Close();
+        _archiveService.Close();
+        foreach (var directory in _externalDirectories)
+        {
+            try { if (Directory.Exists(directory)) Directory.Delete(directory, recursive: true); }
+            catch (Exception ex) { Log.Warning(ex, "Could not clean external-open temporary {Path}", directory); }
+        }
+        _externalDirectories.Clear();
+        Log.Debug("Released archive and preview resources");
+    }
+
+    [RelayCommand]
+    private Task NewArchive() => CreateFromPathsAsync([]);
+
+    public async Task CreateFromPathsAsync(IReadOnlyList<string> initialFiles)
+    {
+        if (!await ConfirmCloseAsync()) return;
+        var choice = await _dialogs.ShowCreateWizardAsync(initialFiles: initialFiles);
         if (choice == null)
             return;
 
         var format = ParseFormat(choice.Format);
-        await RunProgressAsync(T("msg.busy.creating"), true, choice.Files.Sum(f => File.Exists(f) ? new FileInfo(f).Length : 0),
+        if (!await RunProgressAsync(T("msg.busy.creating"), true, choice.Files.Sum(f => File.Exists(f) ? new FileInfo(f).Length : 0),
             async (progress, ct) =>
             {
                 var engine = ArchiveFactory.GetFormat(format);
@@ -260,11 +305,7 @@ public partial class MainViewModel : ObservableObject
                 };
                 foreach (var file in choice.Files)
                 {
-                    using var content = File.OpenRead(file);
-                    var ms = new MemoryStream();
-                    await content.CopyToAsync(ms, ct);
-                    ms.Position = 0;
-                    archive.Vfs.AddFile(Path.GetFileName(file), ms);
+                    archive.Vfs.AddPath(file, ct: ct);
                 }
 
                 var options = BuildOptions(format, choice.Level);
@@ -278,25 +319,43 @@ public partial class MainViewModel : ObservableObject
                 {
                     archive.Dispose();
                 }
-            });
+            })) return;
 
-        await OpenPathAsync(choice.Path);
+        await OpenPathAsync(choice.Path, choice.Password, checkUnsaved: false);
     }
 
-    private async Task OpenPathAsync(string path)
+    public async Task OpenPathAsync(string path, string? password = null, bool checkUnsaved = true)
     {
+        if (checkUnsaved && !await ConfirmCloseAsync()) return;
+        if (path == _currentPath) password ??= _currentPassword;
         Log.Information("Opening archive {Path}", path);
-        await RunBusyAsync(T("msg.busy.opening", Path.GetFileName(path)), async () =>
+        if (!await RunBusyAsync(T("msg.busy.opening", Path.GetFileName(path)), async () =>
         {
-            var archive = await _archiveService.OpenAsync(path);
+            Archive archive;
+            while (true)
+            {
+                try
+                {
+                    archive = await _archiveService.OpenAsync(path, password: password);
+                    break;
+                }
+                catch (Exception ex) when (ex is SharpCompress.Common.CryptographicException
+                    or System.Security.Cryptography.CryptographicException)
+                {
+                    Log.Information("Password required or rejected for {Path}", path);
+                    password = await Dispatcher.UIThread.InvokeAsync(() => _dialogs.ShowPasswordAsync(T("dialog.password.title")));
+                    if (string.IsNullOrEmpty(password)) throw new OperationCanceledException("Archive opening cancelled.");
+                }
+            }
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
                 Archive.LoadArchive(archive, Path.GetFileName(path));
                 _currentPath = path;
+                _currentPassword = password;
                 ArchiveName = Path.GetFileName(path);
                 RefreshSelectionCommands();
             });
-        });
+        })) return;
         _recent.Add(path);
     }
 
@@ -336,15 +395,13 @@ public partial class MainViewModel : ObservableObject
         }
 
         var extractedFiles = new List<ExtractedFile>();
-        await RunProgressAsync(T("msg.busy.extracting"), false, nodes.Sum(n => n.OriginalSize),
+        if (!await RunProgressAsync(T("msg.busy.extracting"), false, nodes.Sum(n => n.OriginalSize),
             async (progress, ct) =>
             {
-                foreach (var node in nodes)
-                {
-                    var r = await _archiveService.ExtractAsync(archive, node, targetDir, choice.Overwrite, progress, ct);
-                    extractedFiles.AddRange(r.Files);
-                }
-            });
+                var r = await ArchiveExtractor.ExtractAsync(nodes, targetDir, choice.Overwrite, progress, ct, choice.PreserveStructure,
+                    async path => await Dispatcher.UIThread.InvokeAsync(() => _dialogs.ResolveConflictAsync(path)));
+                extractedFiles.AddRange(r.Files);
+            })) return;
 
         Log.Information("Extracted {Count} node(s) to {Target}", nodes.Count, targetDir);
         var extracted = extractedFiles.Count(f => f.Status == ExtractStatus.Extracted);
@@ -409,15 +466,13 @@ public partial class MainViewModel : ObservableObject
             return;
 
         var extractedFiles = new List<ExtractedFile>();
-        await RunProgressAsync(T("msg.busy.extracting"), false, nodes.Sum(n => n.OriginalSize),
+        if (!await RunProgressAsync(T("msg.busy.extracting"), false, nodes.Sum(n => n.OriginalSize),
             async (progress, ct) =>
             {
-                foreach (var node in nodes)
-                {
-                    var r = await _archiveService.ExtractAsync(archive, node, targetDir, overwrite: true, progress, ct);
-                    extractedFiles.AddRange(r.Files);
-                }
-            });
+                var r = await ArchiveExtractor.ExtractAsync(nodes, targetDir, overwrite: false, progress, ct,
+                    resolveConflict: async path => await Dispatcher.UIThread.InvokeAsync(() => _dialogs.ResolveConflictAsync(path)));
+                extractedFiles.AddRange(r.Files);
+            })) return;
 
         Log.Information("Extracted {Count} node(s) to {Target}", nodes.Count, targetDir);
         var extracted = extractedFiles.Count(f => f.Status == ExtractStatus.Extracted);
@@ -437,11 +492,11 @@ public partial class MainViewModel : ObservableObject
 
         IReadOnlyList<TestResult> results = Array.Empty<TestResult>();
         var entries = archive.Entries.Count(e => !e.IsDirectory && e.Path.StartsWith(node.FullPath, StringComparison.Ordinal));
-        await RunProgressAsync(T("msg.busy.testing"), false, entries,
+        if (!await RunProgressAsync(T("msg.busy.testing"), false, entries,
             async (progress, ct) =>
             {
                 results = await _archiveService.TestAsync(archive, node, progress, ct);
-            });
+            })) return;
 
         var ok = results.Count(r => r.Success);
         Log.Information("Archive test finished: {Ok} OK, {Failed} failed", ok, results.Count - ok);
@@ -466,69 +521,63 @@ public partial class MainViewModel : ObservableObject
         await AddFilesToArchiveAsync(files);
     }
 
-    /// <summary>Adds external files into the current folder of the open archive and
-    /// saves it (in place when the format is writable, otherwise as a copy). Used by
-    /// both the "Add" toolbar command and drag-and-drop.</summary>
+    /// <summary>Imports files and folders as pending edits, shared by the picker and drop handler.</summary>
     public async Task AddFilesToArchiveAsync(IReadOnlyList<string> paths)
     {
+        if (IsBusy) return;
         var archive = Archive.Archive;
         if (archive == null || paths.Count == 0)
             return;
 
         Log.Debug("Adding {Count} file(s) to archive", paths.Count);
 
-        var inPlace = _currentPath != null && IsWritableFormat(archive.Format);
-        var targetPath = inPlace
-            ? _currentPath!
-            : await _dialogs.PickSaveCopyAsync(ArchiveName.Length > 0 ? ArchiveName : T("msg.newArchiveName"));
-        if (targetPath == null)
-            return;
-
-        var targetFormat = inPlace ? archive.Format : CompressionFormat.Zip;
         var prefix = Archive.CurrentNode?.FullPath.TrimStart('/') ?? "";
-        var tempPath = targetPath + ".tmp";
-
-        await RunProgressAsync(T("msg.busy.adding"), true, TotalArchiveBytes(archive),
-            async (progress, ct) =>
+        await RunProgressAsync(T("msg.busy.adding"), false, 0,
+            (progress, ct) =>
             {
                 foreach (var path in paths)
-                {
-                    using var content = File.OpenRead(path);
-                    var ms = new MemoryStream();
-                    await content.CopyToAsync(ms, ct);
-                    ms.Position = 0;
-                    var rel = string.IsNullOrEmpty(prefix) ? Path.GetFileName(path) : $"{prefix}/{Path.GetFileName(path)}";
-                    archive.Vfs.AddFile(rel, ms);
-                }
-
-                await _archiveService.SaveAsync(archive, tempPath, BuildOptions(targetFormat), progress, ct);
+                    archive.Vfs.AddPath(path, prefix, ct);
+                return Task.CompletedTask;
             });
-
-        await SwapInPlace(tempPath, targetPath, inPlace && targetPath == _currentPath);
+        Archive.RefreshCurrent();
+        UpdateStatus();
     }
 
-    private async Task SwapInPlace(string tempPath, string targetPath, bool reopenSame)
+    [RelayCommand(CanExecute = nameof(CanTest))]
+    private async Task AddFolder()
     {
-        if (!reopenSame)
-        {
-            await OpenPathAsync(targetPath);
-            return;
-        }
+        var folder = await _dialogs.PickDirectoryAsync(T("msg.addFolder"));
+        if (folder != null) await AddFilesToArchiveAsync([folder]);
+    }
 
-        Archive.Close();
-        _archiveService.Close();
-        try
+    [RelayCommand(CanExecute = nameof(CanTest))]
+    private async Task SaveArchive() => await SaveChangesAsync();
+
+    private async Task<bool> SaveChangesAsync()
+    {
+        var archive = Archive.Archive;
+        if (archive == null) return false;
+        var writable = !archive.IsMultiVolume && archive.FormatEngine.CanWrite && (!archive.IsEncrypted || archive.FormatEngine.CanEncrypt);
+        var target = writable ? _currentPath : await _dialogs.PickSaveCopyAsync(Path.GetFileNameWithoutExtension(ArchiveName) + "-copy.zip");
+        if (target == null) return false;
+        var format = writable ? archive.Format : CompressionFormat.Zip;
+        if (!await RunProgressAsync(T("msg.busy.savingCopy"), true, TotalArchiveBytes(archive),
+            (progress, ct) => _archiveService.SaveAsync(archive, target, BuildOptions(format), progress, ct))) return false;
+        archive.Vfs.MarkAllClean();
+        await OpenPathAsync(target, checkUnsaved: false);
+        return true;
+    }
+
+    public async Task<bool> ConfirmCloseAsync()
+    {
+        if (IsBusy) return false;
+        if (Archive.Archive?.Vfs.HasDirtyNodes != true) return true;
+        return await _dialogs.ConfirmUnsavedAsync() switch
         {
-            File.Move(tempPath, targetPath, overwrite: true);
-        }
-        catch (Exception ex)
-        {
-            Log.Error(ex, "Could not update archive in place (temp {Temp}, target {Target})", tempPath, targetPath);
-            await _dialogs.ShowInfoAsync(T("msg.error"), T("msg.couldNotUpdate", ex.Message));
-            try { File.Delete(tempPath); } catch { /* best effort */ }
-            return;
-        }
-        await OpenPathAsync(targetPath);
+            UnsavedChoice.Save => await SaveChangesAsync(),
+            UnsavedChoice.Discard => true,
+            _ => false,
+        };
     }
 
     [RelayCommand(CanExecute = nameof(CanTest))]
@@ -538,16 +587,17 @@ public partial class MainViewModel : ObservableObject
         if (archive == null)
             return;
 
-        var path = await _dialogs.PickSaveCopyAsync(ArchiveName);
+        var path = await _dialogs.PickSaveCopyAsync(archive.FormatEngine.CanWrite && (!archive.IsEncrypted || archive.FormatEngine.CanEncrypt)
+            ? ArchiveName : Path.GetFileNameWithoutExtension(ArchiveName) + ".zip");
         if (path == null)
             return;
 
-        await RunProgressAsync(T("msg.busy.savingCopy"), true, TotalArchiveBytes(archive),
+        if (!await RunProgressAsync(T("msg.busy.savingCopy"), true, TotalArchiveBytes(archive),
             async (progress, ct) =>
             {
-                var targetFormat = IsWritableFormat(archive.Format) ? archive.Format : CompressionFormat.Zip;
+                var targetFormat = ArchiveFormats.FromPath(path);
                 await _archiveService.SaveAsync(archive, path, BuildOptions(targetFormat), progress, ct);
-            });
+            })) return;
 
         await _dialogs.ShowInfoAsync(T("msg.saveComplete"), T("msg.savedCopy", path));
     }
@@ -570,12 +620,12 @@ public partial class MainViewModel : ObservableObject
             ? new FileInfo(_currentPath).Length
             : 0;
         var sourcePath = _currentPath!;
-        await RunProgressAsync(T("msg.busy.splitting"), false, totalOriginal,
+        if (!await RunProgressAsync(T("msg.busy.splitting"), false, totalOriginal,
             async (progress, ct) =>
             {
                 var splitter = new FileSplitter();
                 await splitter.SplitAsync(sourcePath, dest, (long)(mb * 1024 * 1024), progress, ct);
-            });
+            })) return;
     }
 
     [RelayCommand]
@@ -590,13 +640,13 @@ public partial class MainViewModel : ObservableObject
             return;
 
         var totalOriginal = File.Exists(choice.SourcePath) ? new FileInfo(choice.SourcePath).Length : 0;
-        await RunProgressAsync(T("msg.busy.splitting"), false, totalOriginal,
+        if (!await RunProgressAsync(T("msg.busy.splitting"), false, totalOriginal,
             async (progress, ct) =>
             {
                 var splitter = new FileSplitter();
                 await splitter.SplitAsync(choice.SourcePath, choice.DestinationDir,
                     (long)(choice.PartSizeMb * 1024 * 1024), progress, ct, hjsplitMode: choice.HjsplitMode);
-            });
+            })) return;
         Log.Information("Split {Source} into {PartSize}MB parts at {Dest}",
             choice.SourcePath, choice.PartSizeMb, choice.DestinationDir);
     }
@@ -610,12 +660,12 @@ public partial class MainViewModel : ObservableObject
 
         var parts = FileJoiner.AutoDiscoverParts(choice.FirstPart);
         var totalBytes = parts.Sum(p => File.Exists(p) ? new FileInfo(p).Length : 0);
-        await RunProgressAsync(T("msg.busy.joining"), false, totalBytes,
+        if (!await RunProgressAsync(T("msg.busy.joining"), false, totalBytes,
             async (progress, ct) =>
             {
                 var joiner = new FileJoiner();
                 await joiner.JoinAsync(parts, choice.OutputPath, progress, ct);
-            });
+            })) return;
         Log.Information("Joined {Count} part(s) into {Output}", parts.Count, choice.OutputPath);
     }
 
@@ -640,13 +690,13 @@ public partial class MainViewModel : ObservableObject
 
         var hash = "";
         var totalBytes = File.Exists(choice.FilePath) ? new FileInfo(choice.FilePath).Length : 0;
-        await RunProgressAsync(T("msg.busy.hashing"), false, totalBytes,
+        if (!await RunProgressAsync(T("msg.busy.hashing"), false, totalBytes,
             async (progress, ct) =>
             {
                 var calc = new HashCalculator();
                 await using var stream = new ProgressStream(File.OpenRead(choice.FilePath), progress, totalBytes: totalBytes, operation: "Hashing");
                 hash = await calc.ComputeHashAsync(stream, algorithm, ct);
-            });
+            })) return;
 
         if (hash.Length > 0)
         {
@@ -667,12 +717,12 @@ public partial class MainViewModel : ObservableObject
         if (choice == null)
             return;
 
-        await RunProgressAsync(T("msg.busy.converting"), true, TotalArchiveBytes(archive),
+        if (!await RunProgressAsync(T("msg.busy.converting"), true, TotalArchiveBytes(archive),
             async (progress, ct) =>
             {
                 var targetFormat = ParseFormat(choice.Format);
                 await _archiveService.SaveAsync(archive, choice.Path, BuildOptions(targetFormat, choice.Level), progress, ct);
-            });
+            })) return;
         Log.Information("Converted archive to {Target}", choice.Path);
         await _dialogs.ShowInfoAsync(T("msg.convertComplete"), T("msg.converted", choice.Path));
     }
@@ -688,17 +738,16 @@ public partial class MainViewModel : ObservableObject
         if (string.IsNullOrEmpty(password))
             return;
 
-        var inPlace = _currentPath != null && archive.Format == CompressionFormat.Zip;
+        var inPlace = _currentPath != null && archive.Format == CompressionFormat.Zip && !archive.IsMultiVolume;
         var targetPath = inPlace
             ? _currentPath!
-            : await _dialogs.PickSaveCopyAsync(ArchiveName);
+            : await _dialogs.PickSaveCopyAsync(Path.GetFileNameWithoutExtension(ArchiveName) + ".zip");
         if (targetPath == null)
             return;
 
-        var tempPath = targetPath + ".tmp";
         Log.Information("Setting password on archive (output {Target}, in-place {InPlace})",
             targetPath, inPlace);
-        await RunProgressAsync(T("msg.busy.encrypting"), true, TotalArchiveBytes(archive),
+        if (!await RunProgressAsync(T("msg.busy.encrypting"), true, TotalArchiveBytes(archive),
             async (progress, ct) =>
             {
                 var options = new CompressionOptions
@@ -707,10 +756,10 @@ public partial class MainViewModel : ObservableObject
                     Level = CompressionLevel.Normal,
                     Encryption = new EncryptionOptions { Password = password },
                 };
-                await _archiveService.SaveAsync(archive, tempPath, options, progress, ct);
-            });
+                await _archiveService.SaveAsync(archive, targetPath, options, progress, ct);
+            })) return;
 
-        await SwapInPlace(tempPath, targetPath, inPlace);
+        await OpenPathAsync(targetPath, password);
     }
 
     [RelayCommand(CanExecute = nameof(CanTest))]
@@ -925,12 +974,7 @@ public partial class MainViewModel : ObservableObject
         _settingsService.Save(_settings);
     }
 
-    private static CompressionFormat ParseFormat(string name) => name.ToLowerInvariant() switch
-    {
-        "7z" => CompressionFormat.SevenZip,
-        "zstd" or "zst" => CompressionFormat.Zstandard,
-        _ => CompressionFormat.Zip,
-    };
+    private static CompressionFormat ParseFormat(string name) => ArchiveFormats.Parse(name);
 
     private static bool IsWritableFormat(CompressionFormat format) => format switch
     {
@@ -942,12 +986,14 @@ public partial class MainViewModel : ObservableObject
         _ => false,
     };
 
-    private static CompressionOptions BuildOptions(CompressionFormat format, int level = 5)
+    private CompressionOptions BuildOptions(CompressionFormat format, int level = 5)
     {
         return new CompressionOptions
         {
             Format = format,
             Level = (CompressionLevel)Math.Clamp(level, 0, 10),
+            ThreadCount = _settings.ThreadCount,
+            EnableParallel = _settings.EnableParallel,
         };
     }
 
@@ -978,12 +1024,15 @@ public partial class MainViewModel : ObservableObject
         if (string.IsNullOrWhiteSpace(newName) || newName == item.Name)
             return;
 
-        Log.Debug("Renamed {Old} to {New}", item.Name, newName);
-        Archive.Archive?.Vfs.RenameNode(item.Node, newName);
+        if (!await RunBusyAsync(T("msg.rename"), () =>
+            {
+                Archive.Archive?.Vfs.RenameNode(item.Node, newName);
+                return Task.CompletedTask;
+            })) return;
         Archive.RefreshCurrent();
     }
 
-    private bool CanRename() => Archive.SelectedItem != null;
+    private bool CanRename() => Archive.SelectedItem is { IsParent: false };
 
     [RelayCommand(CanExecute = nameof(CanInfo))]
     private async Task Info()
@@ -1138,7 +1187,7 @@ public partial class MainViewModel : ObservableObject
 
     // ---- Plumbing ----
 
-    private async Task RunBusyAsync(string busyText, Func<Task> work)
+    private async Task<bool> RunBusyAsync(string busyText, Func<Task> work)
     {
         IsBusy = true;
         BusyText = busyText;
@@ -1147,12 +1196,19 @@ public partial class MainViewModel : ObservableObject
         {
             Log.Debug("Busy: {BusyText}", busyText);
             await Task.Run(work);
+            return true;
+        }
+        catch (OperationCanceledException)
+        {
+            Log.Information("Operation cancelled: {Operation}", busyText);
+            return false;
         }
         catch (Exception ex)
         {
             Log.Error(ex, "Operation failed: {BusyText}", busyText);
             await _dialogs.ShowInfoAsync(T("msg.error"), ex.Message);
             StatusText = T("msg.error");
+            return false;
         }
         finally
         {
@@ -1165,28 +1221,31 @@ public partial class MainViewModel : ObservableObject
     /// <summary>
     /// Runs a long operation behind a modal progress dialog. <paramref name="showChart"/>
     /// turns on the live compression-ratio chart (needs <paramref name="totalOriginalBytes"/>),
-    /// otherwise the dialog shows a per-file / byte bar. Cancellation surfaces as
-    /// <see cref="OperationCanceledException"/>.
+    /// otherwise the dialog shows a per-file / byte bar. Returns true only on success.
     /// </summary>
-    private async Task RunProgressAsync(
+    private async Task<bool> RunProgressAsync(
         string title, bool showChart, long totalOriginalBytes,
         Func<IProgress<ProgressReport>, CancellationToken, Task> work)
     {
         var owner = _dialogs.MainWindow;
         if (owner == null)
         {
-            await RunBusyAsync(title, async () => await work(new Progress<ProgressReport>(_ => { }), CancellationToken.None));
-            return;
+            return await RunBusyAsync(title, async () => await work(new Progress<ProgressReport>(_ => { }), CancellationToken.None));
         }
 
         Log.Debug("Progress: {Title} (chart {Chart})", title, showChart);
+        IsBusy = true;
         try
         {
             await ProgressDialog.ShowAsync(owner, title, showChart, totalOriginalBytes,
                 (p, ct) => Task.Run(() => work(p, ct), ct));
+            IsBusy = false;
+            UpdateStatus();
+            return true;
         }
         catch (OperationCanceledException)
         {
+            Log.Information("Operation cancelled: {Title}", title);
             StatusText = T("status.ready");
         }
         catch (Exception ex)
@@ -1195,11 +1254,12 @@ public partial class MainViewModel : ObservableObject
             await _dialogs.ShowInfoAsync(T("msg.error"), ex.Message);
             StatusText = T("msg.error");
         }
-        UpdateStatus();
+        finally { IsBusy = false; }
+        return false;
     }
 
     private static long TotalArchiveBytes(Archive archive)
-        => archive.Entries.Where(e => !e.IsDirectory).Sum(e => e.Size);
+        => archive.Vfs.EnumerateNodes().Where(e => e.Type == NodeType.File).Sum(e => e.OriginalSize);
 
     private void RefreshSelectionCommands()
     {
@@ -1211,6 +1271,8 @@ public partial class MainViewModel : ObservableObject
         TestCommand.NotifyCanExecuteChanged();
         AddToArchiveCommand.NotifyCanExecuteChanged();
         SaveCopyAsCommand.NotifyCanExecuteChanged();
+        SaveArchiveCommand.NotifyCanExecuteChanged();
+        AddFolderCommand.NotifyCanExecuteChanged();
         SplitArchiveCommand.NotifyCanExecuteChanged();
         ConvertArchiveCommand.NotifyCanExecuteChanged();
         SetPasswordCommand.NotifyCanExecuteChanged();
@@ -1223,7 +1285,7 @@ public partial class MainViewModel : ObservableObject
         if (IsBusy)
             return;
         StatusText = Archive.HasArchive
-            ? $"{ArchiveName} · {Archive.BuildStatusText()}"
+            ? $"{ArchiveName}{(Archive.Archive?.Vfs.HasDirtyNodes == true ? " *" : "")} · {Archive.BuildStatusText()}"
             : T("status.ready");
     }
 }

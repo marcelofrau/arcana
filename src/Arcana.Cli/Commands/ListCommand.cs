@@ -17,16 +17,25 @@ public static class ListCommand
 
         var archiveArg = new Argument<string>("archive") { Description = "Path to archive" };
         var detailedOpt = new Option<bool>("--detailed", "-l") { Description = "Detailed listing" };
+        var passwordOpt = new Option<string>("--password", "-p") { Description = "Archive password" };
+        var jsonOpt = new Option<bool>("--json") { Description = "Write machine-readable JSON" };
 
         command.Add(archiveArg);
         command.Add(detailedOpt);
+        command.Add(passwordOpt);
+        command.Add(jsonOpt);
 
         command.SetAction(async (ParseResult r) =>
         {
             var path = r.GetValue(archiveArg)!;
             var detailed = r.GetValue(detailedOpt);
 
-            var archive = await ArchiveFactory.OpenAsync(path);
+            using var archive = await ArchiveFactory.OpenAsync(path, r.GetValue(passwordOpt));
+            if (r.GetValue(jsonOpt))
+            {
+                Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(archive.Entries));
+                return 0;
+            }
 
             Log.Debug("Listing {Archive} ({EntryCount} entries)", path, archive.Entries.Count);
             Log.Information("Format detected: {Format}", archive.Format);
@@ -60,8 +69,8 @@ public static class ListCommand
                     var attrs = $"{(entry.IsDirectory ? "[blue]d[/]" : " ")}{(entry.IsEncrypted ? "[yellow]e[/]" : " ")}";
 
                     var name = entry.IsDirectory
-                        ? $"[cyan]{entry.Path}/[/]"
-                        : entry.Path;
+                        ? $"[cyan]{Markup.Escape(entry.Path)}/[/]"
+                        : Markup.Escape(entry.Path);
 
                     table.AddRow(date, size, compressed, ratio, attrs, name);
                 }
@@ -84,9 +93,9 @@ public static class ListCommand
                 foreach (var entry in archive.Entries.OrderBy(e => e.Path))
                 {
                     if (entry.IsDirectory)
-                        Output.MarkupLine($"[cyan]{entry.Path}/[/]");
+                        Output.MarkupLine($"[cyan]{Markup.Escape(entry.Path)}/[/]");
                     else
-                        Output.MarkupLine($"{entry.Path}");
+                        Output.MarkupLine(Markup.Escape(entry.Path));
                 }
 
                 var fileCount = archive.Entries.Count(e => !e.IsDirectory);

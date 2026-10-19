@@ -83,6 +83,7 @@ public partial class ArchiveViewModel : ObservableObject
         _archive?.Dispose();
         _archive = archive;
         archive.SyncNodeMetadata();
+        archive.Vfs.MarkAllClean();
 
         var vfsRoot = archive.Vfs.Root;
         vfsRoot.Name = displayName;
@@ -158,8 +159,8 @@ public partial class ArchiveViewModel : ObservableObject
         get
         {
             if (SelectedItems is { Count: > 0 } list)
-                return list.Select(i => i.Node).ToList();
-            return SelectedItem != null
+                return list.Where(i => !i.IsParent).Select(i => i.Node).ToList();
+            return SelectedItem is { IsParent: false }
                 ? new[] { SelectedItem.Node }
                 : Array.Empty<ArchiveNode>();
         }
@@ -174,8 +175,7 @@ public partial class ArchiveViewModel : ObservableObject
 
         foreach (var node in nodes)
         {
-            node.Parent?.Children.Remove(node);
-            node.Parent = null;
+            _archive?.Vfs.DeleteNode(node);
         }
         Log.Information("Deleted {Count} item(s) from archive tree", nodes.Count);
         SelectedItems = new List<FileEntryItem>();
@@ -251,9 +251,9 @@ public partial class ArchiveViewModel : ObservableObject
         }
 
         Entries = new ObservableCollection<FileEntryItem>(
-            _fullEntries.Where(e =>
-                e.IsParent ||
-                e.Name.Contains(Filter, StringComparison.OrdinalIgnoreCase)));
+            (_archive?.Vfs.EnumerateNodes() ?? []).Where(n =>
+                n.FullPath.Contains(Filter, StringComparison.OrdinalIgnoreCase)).Select(n => new FileEntryItem(n)));
+        Log.Debug("Archive search returned {Count} entries", Entries.Count);
     }
 
     private void BuildBreadcrumb()

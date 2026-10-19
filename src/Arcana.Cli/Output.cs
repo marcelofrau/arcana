@@ -34,7 +34,7 @@ public static class Output
     public static void Info(string message) => Console.MarkupLine($"[blue]ℹ[/] {message}");
     public static void Success(string message) => Console.MarkupLine($"[green]✔[/] {message}");
     public static void Warning(string message) => Console.MarkupLine($"[yellow]⚠[/] {message}");
-    public static void Error(string message) => Console.MarkupLine($"[red]✘[/] {message}");
+    public static void Error(string message) => Console.MarkupLine($"[red]✘[/] {Spectre.Console.Markup.Escape(message)}");
 
     public static void Write(IRenderable renderable) => Console.Write(renderable);
 

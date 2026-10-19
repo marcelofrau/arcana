@@ -113,7 +113,7 @@ public class TarEngineTests
     }
 
     [Fact]
-    public void Save_TarXz_ShouldThrowNotSupported()
+    public void SaveAndOpen_TarXz_ShouldPreserveContent()
     {
         using var output = new MemoryStream();
         var archive = CreateArchive(new Dictionary<string, byte[]>
@@ -121,8 +121,11 @@ public class TarEngineTests
             ["hello.txt"] = "Hello World"u8.ToArray(),
         });
 
-        var act = () => _sut.Save(archive, output, new CompressionOptions { Format = CompressionFormat.TarXz });
-        act.Should().Throw<NotSupportedException>();
+        _sut.Save(archive, output, new CompressionOptions { Format = CompressionFormat.TarXz });
+        output.Position = 0;
+        using var opened = _sut.Open("test.tar.xz", output, AccessMode.Read);
+        using var content = opened.Vfs.FindNode("hello.txt")!.OpenRead();
+        new StreamReader(content).ReadToEnd().Should().Be("Hello World");
     }
 
     [Fact]

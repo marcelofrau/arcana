@@ -1,4 +1,5 @@
 using Arcana.Core.Compression;
+using Arcana.Core.Filesystem;
 using Serilog;
 
 namespace Arcana.Core.Tools;
@@ -17,6 +18,8 @@ public class FileSplitter
                                  IProgress<ProgressReport>? progress = null, CancellationToken ct = default,
                                  bool hjsplitMode = false)
     {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(partSize);
+        ct.ThrowIfCancellationRequested();
         Directory.CreateDirectory(outputDir);
         var baseName = Path.GetFileNameWithoutExtension(sourcePath);
         var ext = Path.GetExtension(sourcePath);
@@ -27,25 +30,28 @@ public class FileSplitter
         var totalBytes = source.Length;
         _log.Debug("Split start: {Path} ({Size}) into {PartSize} parts", sourcePath, totalBytes, partSize);
 
-        while (source.Position < totalBytes)
+        var created = new List<string>();
+        try
+        {
+        do
         {
             ct.ThrowIfCancellationRequested();
             partIndex++;
 
             var partFile = hjsplitMode
-                ? Path.Combine(outputDir, $"{baseName}.{partIndex:D3}")
+                ? Path.Combine(outputDir, $"{Path.GetFileName(sourcePath)}.{partIndex:D3}")
                 : Path.Combine(outputDir, $"{baseName}.part{partIndex:D3}{ext}");
 
             _log.Verbose("Writing part {Index}: {PartPath}", partIndex, partFile);
-            await using var part = File.Create(partFile);
-            var remaining = Math.Min(partSize, totalBytes - source.Position);
-
-            while (remaining > 0)
+            await AtomicFile.WriteAsync(partFile, async (part, token) =>
             {
-                ct.ThrowIfCancellationRequested();
+                var remaining = Math.Min(partSize, totalBytes - source.Position);
+                while (remaining > 0)
+                {
+                token.ThrowIfCancellationRequested();
                 var toRead = (int)Math.Min(buffer.Length, remaining);
                 var read = await source.ReadAsync(buffer, 0, toRead, ct).ConfigureAwait(false);
-                if (read == 0) break;
+                if (read == 0) throw new EndOfStreamException("Source changed while splitting.");
 
                 await part.WriteAsync(buffer, 0, read, ct).ConfigureAwait(false);
                 remaining -= read;
@@ -53,11 +59,24 @@ public class FileSplitter
                 progress?.Report(new ProgressReport
                 {
                     CurrentFile = Path.GetFileName(partFile),
-                    BytesProcessed = totalBytes - remaining,
+                    BytesProcessed = source.Position,
                     TotalBytes = totalBytes,
                     CurrentOperation = "Splitting",
                 });
+                }
+            }, ct, overwrite: false);
+            created.Add(partFile);
+        } while (source.Position < totalBytes);
+        }
+        catch (Exception ex)
+        {
+            _log.Warning(ex, "Split failed; removing {Count} new parts", created.Count);
+            foreach (var path in created)
+            {
+                try { File.Delete(path); }
+                catch (Exception cleanup) { _log.Warning(cleanup, "Could not remove part {Path}", path); }
             }
+            throw;
         }
 
         _log.Information("Split complete: {PartCount} parts", partIndex);

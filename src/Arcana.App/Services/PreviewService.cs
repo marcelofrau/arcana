@@ -87,7 +87,8 @@ public class PreviewService
         try
         {
             var sb = new StringBuilder();
-            using var doc = PdfDocument.Open(stream);
+            using var document = ReadDocument(stream, size);
+            using var doc = PdfDocument.Open(document);
             var pageCount = doc.NumberOfPages;
             var pagesToRead = Math.Min(pageCount, 20);
             for (var p = 1; p <= pagesToRead && sb.Length < MaxTextBytes; p++)
@@ -116,18 +117,19 @@ public class PreviewService
     {
         try
         {
-            using var archive = ZipArchive.OpenArchive(stream);
+            using var document = ReadDocument(stream, size);
+            using var archive = ZipArchive.OpenArchive(document);
             var entry = archive.Entries.FirstOrDefault(e => e.Key?.Equals(entryName, StringComparison.OrdinalIgnoreCase) == true);
             if (entry == null)
                 return new PreviewResult(PreviewKind.Hex, $"(no {entryName} found)", null, ByteFormat.Format(size), $"missing entry: {entryName}");
 
-            using var ms = new MemoryStream();
-            entry.OpenEntryStream().CopyTo(ms);
-            var xml = Encoding.UTF8.GetString(ms.ToArray());
+            using var content = entry.OpenEntryStream();
+            var xml = Encoding.UTF8.GetString(ReadUpTo(content, MaxTextBytes));
             var body = normalize != null ? normalize(xml) : xml;
             var text = Truncate(StripXmlTags(body), MaxTextBytes);
 
             var info = $"{ByteFormat.Format(size)} · {format}";
+            if (entry.Size > MaxTextBytes) info += " (truncated)";
             if (string.IsNullOrWhiteSpace(text))
                 info += " (no extractable text)";
 
@@ -144,7 +146,8 @@ public class PreviewService
     {
         try
         {
-            using var archive = ZipArchive.OpenArchive(stream);
+            using var document = ReadDocument(stream, size);
+            using var archive = ZipArchive.OpenArchive(document);
             var slides = archive.Entries
                 .Where(e => e.Key?.StartsWith("ppt/slides/", StringComparison.OrdinalIgnoreCase) == true
                             && e.Key.EndsWith(".xml", StringComparison.OrdinalIgnoreCase))
@@ -152,15 +155,14 @@ public class PreviewService
                 .ToList();
 
             var sb = new StringBuilder();
-            foreach (var slide in slides)
+            foreach (var slide in slides.Take(100))
             {
-                using var ms = new MemoryStream();
-                slide.OpenEntryStream().CopyTo(ms);
-                var xml = Encoding.UTF8.GetString(ms.ToArray());
-                var texts = Regex.Matches(xml, "<a:t>(.*?)</a:t>", RegexOptions.Singleline)
-                    .Select(m => m.Groups[1].Value);
                 if (sb.Length >= MaxTextBytes)
                     break;
+                using var content = slide.OpenEntryStream();
+                var xml = Encoding.UTF8.GetString(ReadUpTo(content, MaxTextBytes));
+                var texts = Regex.Matches(xml, "<a:t>(.*?)</a:t>", RegexOptions.Singleline | RegexOptions.NonBacktracking,
+                    TimeSpan.FromSeconds(1)).Select(m => m.Groups[1].Value);
                 sb.Append($"--- {slide.Key} ---\n");
                 sb.Append(string.Join('\n', texts));
                 sb.Append('\n');
@@ -179,7 +181,7 @@ public class PreviewService
 
     private static string StripXmlTags(string xml)
     {
-        xml = Regex.Replace(xml, "<[^>]+>", "");
+        xml = Regex.Replace(xml, "<[^>]+>", "", RegexOptions.NonBacktracking, TimeSpan.FromSeconds(1));
         return xml.Replace("&amp;", "&")
                   .Replace("&lt;", "<")
                   .Replace("&gt;", ">")
@@ -194,7 +196,11 @@ public class PreviewService
     {
         try
         {
-            var source = GifStreamSource.FromStream(stream);
+            var bytes = ReadDocumentBytes(stream, size);
+            if (bytes.Length < 10 || (long)System.Buffers.Binary.BinaryPrimitives.ReadUInt16LittleEndian(bytes.AsSpan(6))
+                * System.Buffers.Binary.BinaryPrimitives.ReadUInt16LittleEndian(bytes.AsSpan(8)) > 16_000_000)
+                throw new InvalidDataException("GIF dimensions exceed the preview limit.");
+            var source = GifStreamSource.FromStream(new MemoryStream(bytes, writable: false));
             var info = $"{ByteFormat.Format(size)} · {source.Size.Width}×{source.Size.Height} · gif (animated)";
             return new PreviewResult(PreviewKind.Gif, "", null, info, GifSource: source);
         }
@@ -208,13 +214,15 @@ public class PreviewService
     public PreviewResult LoadText(Stream stream, long size)
     {
         var bytes = ReadUpTo(stream, MaxTextBytes);
-        var text = DecodeText(bytes);
-
         var info = $"{ByteFormat.Format(size)} · text";
         if (size > MaxTextBytes)
             info += $" (truncated)";
-
-        return new PreviewResult(PreviewKind.Text, text, null, info);
+        try { return new PreviewResult(PreviewKind.Text, DecodeText(bytes, size > MaxTextBytes), null, info); }
+        catch (DecoderFallbackException ex)
+        {
+            Log.Warning(ex, "Text preview has an unsupported or invalid encoding");
+            return new PreviewResult(PreviewKind.Text, "", null, info, "Text encoding could not be decoded. Use Binary Preview.");
+        }
     }
 
     public PreviewResult LoadHex(Stream stream, long size)
@@ -255,7 +263,7 @@ public class PreviewService
             if (size > MaxImageBytes)
                 return new PreviewResult(PreviewKind.Hex, "(image too large to preview)", null, ByteFormat.Format(size));
 
-            stream.Position = 0;
+            if (stream.CanSeek) stream.Position = 0;
             var bitmap = new Bitmap(stream);
             var info = $"{ByteFormat.Format(size)} · {bitmap.PixelSize.Width}×{bitmap.PixelSize.Height}";
             return new PreviewResult(PreviewKind.Image, "", bitmap, info);
@@ -269,8 +277,8 @@ public class PreviewService
 
     private static byte[] ReadUpTo(Stream stream, int maxBytes)
     {
-        stream.Position = 0;
-        var buffer = new byte[Math.Min(stream.Length, maxBytes)];
+        if (stream.CanSeek) stream.Position = 0;
+        var buffer = new byte[maxBytes];
         var read = 0;
         while (read < buffer.Length)
         {
@@ -284,23 +292,27 @@ public class PreviewService
         return buffer;
     }
 
-    private static string DecodeText(byte[] bytes)
-    {
-        if (bytes.Length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF)
-            return Encoding.UTF8.GetString(bytes, 3, bytes.Length - 3);
-        if (bytes.Length >= 2 && bytes[0] == 0xFF && bytes[1] == 0xFE)
-            return Encoding.Unicode.GetString(bytes, 2, bytes.Length - 2);
-        if (bytes.Length >= 2 && bytes[0] == 0xFE && bytes[1] == 0xFF)
-            return Encoding.BigEndianUnicode.GetString(bytes, 2, bytes.Length - 2);
+    private static MemoryStream ReadDocument(Stream stream, long size) => new(ReadDocumentBytes(stream, size), writable: false);
 
-        try
-        {
-            var utf8 = new UTF8Encoding(false, throwOnInvalidBytes: true);
-            return utf8.GetString(bytes);
-        }
-        catch (DecoderFallbackException)
-        {
-            return Encoding.Latin1.GetString(bytes);
-        }
+    private static byte[] ReadDocumentBytes(Stream stream, long size)
+    {
+        if (size > MaxImageBytes) throw new InvalidDataException("Document exceeds the 32 MiB preview limit.");
+        var bytes = ReadUpTo(stream, MaxImageBytes + 1);
+        if (bytes.Length > MaxImageBytes) throw new InvalidDataException("Document exceeds the 32 MiB preview limit.");
+        return bytes;
+    }
+
+    private static string DecodeText(byte[] bytes, bool truncated)
+    {
+        Encoding encoding = new UTF8Encoding(false, throwOnInvalidBytes: true);
+        var offset = 0;
+        if (bytes.Length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF) offset = 3;
+        else if (bytes.Length >= 2 && bytes[0] == 0xFF && bytes[1] == 0xFE)
+        { encoding = new UnicodeEncoding(false, false, true); offset = 2; }
+        else if (bytes.Length >= 2 && bytes[0] == 0xFE && bytes[1] == 0xFF)
+        { encoding = new UnicodeEncoding(true, false, true); offset = 2; }
+        var chars = new char[encoding.GetMaxCharCount(bytes.Length - offset)];
+        var count = encoding.GetDecoder().GetChars(bytes, offset, bytes.Length - offset, chars, 0, flush: !truncated);
+        return new string(chars, 0, count);
     }
 }

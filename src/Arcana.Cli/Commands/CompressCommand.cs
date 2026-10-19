@@ -20,7 +20,7 @@ public static class CompressCommand
         var sourceArg = new Argument<string[]>("source") { Description = "Files/directories to compress" };
         var outputOpt = new Option<string>("--output", "-o") { Description = "Output archive path", Required = true };
         var formatOpt = new Option<string>("--format", "-f") { Description = "Archive format (zip, 7z, zstd)" };
-        var levelOpt = new Option<int>("--level", "-l") { Description = "Compression level (0-9)" };
+        var levelOpt = new Option<int>("--level", "-l") { Description = "Compression level (0-9)", DefaultValueFactory = _ => 5 };
         var passwordOpt = new Option<string>("--password", "-p") { Description = "Encryption password" };
 
         command.Add(sourceArg);
@@ -29,131 +29,71 @@ public static class CompressCommand
         command.Add(levelOpt);
         command.Add(passwordOpt);
 
-        command.SetAction(async (ParseResult r) =>
+        command.SetAction(async (ParseResult r, CancellationToken ct) =>
         {
             var sources = r.GetValue(sourceArg);
             var output = r.GetValue(outputOpt);
-            var format = r.GetValue(formatOpt) ?? "zip";
+            var format = r.GetValue(formatOpt);
+            var targetFormat = format != null ? ArchiveFormats.Parse(format) : ArchiveFormats.FromPath(output!);
             var level = r.GetValue(levelOpt);
             var password = r.GetValue(passwordOpt);
-            var fileCount = CountSources(sources!);
-
-            Log.Information("Compress start: {SourceCount} sources -> {Output}", fileCount, output);
             Archive archive;
             try
             {
-                archive = BuildArchive(sources!, output!, format, level);
+                archive = BuildArchive(sources!, ct);
             }
             catch (Exception ex)
             {
                 Log.Error(ex, "Failed to build archive: {Message}", ex.Message);
                 return 1;
             }
+            using var lifetime = archive;
+            var fileCount = archive.Vfs.EnumerateNodes().Count(n => n.Type == NodeType.File);
+            Log.Information("Compress start: {SourceCount} files -> {Output}", fileCount, output);
 
-            await Output.StartProgressAsync($"Compressing {fileCount} {(fileCount == 1 ? "file" : "files")} to [cyan]{Path.GetFileName(output)}[/]",
+            await Output.StartProgressAsync($"Compressing {fileCount} {(fileCount == 1 ? "file" : "files")} to [cyan]{Markup.Escape(Path.GetFileName(output)!)}[/]",
                 async ctx =>
                 {
-                    var task = ctx.AddTask($"Compressing {fileCount} files", maxValue: fileCount);
+                    var task = ctx.AddTask($"Compressing {fileCount} files", maxValue: Math.Max(1, fileCount));
                     var progress = new Progress<ProgressReport>(report =>
                     {
                         task.Value = report.FilesProcessed;
                         task.Description = report.CurrentFile != null
-                            ? $"[cyan]{report.CurrentFile}[/]"
+                            ? $"[cyan]{Markup.Escape(report.CurrentFile)}[/]"
                             : $"Compressing...";
                     });
 
-                    var engine = new ZipEngine();
-                    await using var stream = File.Create(output!);
-                    await engine.SaveAsync(archive, stream, new CompressionOptions
+                    await ArchiveWriter.SaveAsync(archive, output!, new CompressionOptions
                     {
-                        Format = CompressionFormat.Zip,
+                        Format = targetFormat,
                         Level = (CompressionLevel)Math.Clamp(level, 0, 9),
                         Encryption = password != null ? new EncryptionOptions { Password = password } : null,
-                    }, progress);
+                    }, progress, ct);
                 });
 
             var fi = new FileInfo(output!);
             var size = FormatSize(fi.Length);
             Log.Information("Compress complete: {Output} ({Size})", output, size);
-            Output.Success($"Created [cyan]{Path.GetFileName(output)}[/] [dim]({size})[/]");
+            Output.Success($"Created [cyan]{Markup.Escape(Path.GetFileName(output)!)}[/] [dim]({size})[/]");
             return 0;
         });
 
         return command;
     }
 
-    private static Archive BuildArchive(string[] sources, string outputPath, string format, int level)
+    private static Archive BuildArchive(string[] sources, CancellationToken ct)
     {
         var vfs = new VirtualFileSystem();
-        var entries = new List<ArchiveEntry>();
-
-        foreach (var source in sources)
+        try
         {
-            var attr = File.GetAttributes(source);
-            if (attr.HasFlag(FileAttributes.Directory))
-                AddDirectoryToVfs(vfs, entries, source, "");
-            else
-                AddFileToVfs(vfs, entries, source, "");
+            foreach (var source in sources) vfs.AddPath(source, ct: ct);
+            return new Archive { Format = CompressionFormat.Zip, FormatEngine = new ZipEngine(), Vfs = vfs };
         }
-
-        return new Archive
+        catch
         {
-            Format = CompressionFormat.Zip,
-            FormatEngine = new ZipEngine(),
-            Entries = entries,
-            Vfs = vfs,
-        };
-    }
-
-    private static void AddDirectoryToVfs(VirtualFileSystem vfs, List<ArchiveEntry> entries, string dirPath, string prefix)
-    {
-        var dirName = Path.GetFileName(dirPath);
-        var dirEntryPath = string.IsNullOrEmpty(prefix) ? dirName : $"{prefix}/{dirName}";
-
-        vfs.AddDirectory(dirEntryPath);
-
-        foreach (var file in Directory.GetFiles(dirPath))
-            AddFileToVfs(vfs, entries, file, dirEntryPath);
-
-        foreach (var subDir in Directory.GetDirectories(dirPath))
-            AddDirectoryToVfs(vfs, entries, subDir, dirEntryPath);
-    }
-
-    private static void AddFileToVfs(VirtualFileSystem vfs, List<ArchiveEntry> entries, string filePath, string prefix)
-    {
-        var fileName = Path.GetFileName(filePath);
-        var entryPath = string.IsNullOrEmpty(prefix) ? fileName : $"{prefix}/{fileName}";
-        var fi = new FileInfo(filePath);
-
-        using var stream = File.OpenRead(filePath);
-        var ms = new MemoryStream();
-        stream.CopyTo(ms);
-        ms.Position = 0;
-
-        Log.Debug("Added file {EntryPath} to archive", entryPath);
-        vfs.AddFile(entryPath, ms);
-
-        entries.Add(new ArchiveEntry
-        {
-            Path = entryPath,
-            Name = fileName,
-            Size = fi.Length,
-            IsDirectory = false,
-            LastModified = fi.LastWriteTimeUtc,
-        });
-    }
-
-    private static int CountSources(string[] sources)
-    {
-        var count = 0;
-        foreach (var source in sources)
-        {
-            if (Directory.Exists(source))
-                count += Directory.GetFiles(source, "*", SearchOption.AllDirectories).Length;
-            else
-                count++;
+            vfs.Dispose();
+            throw;
         }
-        return count;
     }
 
     private static string FormatSize(long bytes) => bytes switch
