@@ -64,7 +64,7 @@
                                    Foreground="{DynamicResource AppAccentBrush}"/>
                     </Grid>
                     <ScrollViewer MaxHeight="200" HorizontalScrollBarVisibility="Auto">
-                        <ItemsControl ItemsSource="{Binding Files}">
+                        <ItemsControl ItemsSource="{Binding ShownFiles}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate x:DataType="svc:ExtractedFile">
                                     <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
@@ -81,6 +81,10 @@
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
                     </ScrollViewer>
+                    <Button Classes="secondary" HorizontalAlignment="Left" FontSize="11"
+                            IsVisible="{Binding HasMore}"
+                            Command="{Binding LoadMoreCommand}"
+                            Content="{Binding LoadMoreText}"/>
                 </StackPanel>
             </Border>
 

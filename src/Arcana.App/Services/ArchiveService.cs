@@ -14,9 +14,10 @@ public class ArchiveService
 
     public Archive? CurrentArchive { get; private set; }
 
-    public async Task<Archive> OpenAsync(string path, CancellationToken ct = default, string? password = null)
+    public async Task<Archive> OpenAsync(string path, CancellationToken ct = default, string? password = null,
+                                     IProgress<ProgressReport>? progress = null)
     {
-        CurrentArchive = await ArchiveFactory.OpenAsync(path, password, mode: AccessMode.Read, ct: ct);
+        CurrentArchive = await ArchiveFactory.OpenAsync(path, password, mode: AccessMode.Read, ct: ct, progress: progress);
         return CurrentArchive;
     }
 
@@ -40,7 +41,38 @@ public class ArchiveService
             .ToList();
 
         var results = new List<TestResult>();
+        var throttle = new ProgressThrottle(Math.Max(1, entries.Count / 100));
+        // Time-gated only (the count step never trips): the per-chunk callback fires every
+        // 80 KB, so a single huge entry still shows bytes moving instead of sitting at 0%.
+        var byteThrottle = new ProgressThrottle(int.MaxValue);
+        var totalBytes = entries.Sum(e => e.OriginalSize);
+        var totalCompressedBytes = entries.Sum(e => e.CompressedSize);
+        var started = System.Diagnostics.Stopwatch.StartNew();
         var done = 0;
+        long doneBytes = 0;
+        long doneCompressedBytes = 0;
+
+        Log.Information("Testing {Count} entries ({Bytes} bytes) under {Path}", entries.Count, totalBytes, node.FullPath);
+
+        void Report(ArchiveNode current, long entryBytes)
+        {
+            // Same estimate as extraction: the archive side follows the entry's own ratio so
+            // the second line and the ratio text move while one huge entry is still reading.
+            var estimate = current.OriginalSize > 0
+                ? (long)((double)current.CompressedSize * entryBytes / current.OriginalSize)
+                : 0;
+            progress?.Report(new ProgressReport
+            {
+                CurrentFile = current.Name,
+                FilesProcessed = done,
+                TotalFiles = entries.Count,
+                BytesProcessed = doneBytes + entryBytes,
+                TotalBytes = totalBytes,
+                CompressedBytes = doneCompressedBytes + estimate,
+                TotalCompressedBytes = totalCompressedBytes,
+                CurrentOperation = "Testing",
+            });
+        }
 
         foreach (var entry in entries)
         {
@@ -49,7 +81,12 @@ public class ArchiveService
             var message = "OK";
             try
             {
-                await ArchiveContent.CopyVerifiedAsync(entry, Stream.Null, ct);
+                doneBytes += await ArchiveContent.CopyVerifiedAsync(entry, Stream.Null, ct,
+                    onProgress: bytes =>
+                    {
+                        if (byteThrottle.ShouldReport(bytes))
+                            Report(entry, bytes);
+                    });
                 success = true;
                 message = entry.Crc32.HasValue ? "CRC verified" : "Content readable; no stored CRC";
             }
@@ -62,15 +99,13 @@ public class ArchiveService
 
             results.Add(new TestResult(entry.FullPath, success, message));
             done++;
-            progress?.Report(new ProgressReport
-            {
-                CurrentFile = entry.Name,
-                FilesProcessed = done,
-                TotalFiles = entries.Count,
-                CurrentOperation = "Testing",
-            });
+            doneCompressedBytes += entry.CompressedSize;
+            if (throttle.ShouldReport(done))
+                Report(entry, 0);
         }
 
+        Log.Information("Tested {Count} entries in {Elapsed:0.0}s, {Failed} failed",
+            results.Count, started.Elapsed.TotalSeconds, results.Count(r => !r.Success));
         return results;
     }
 

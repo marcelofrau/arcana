@@ -3,19 +3,48 @@
         xmlns:l="using:Arcana.App.Localization"
         xmlns:icons="using:Arcana.App.Icons"
         x:Class="Arcana.App.Views.Dialogs.ErrorDialog"
-        Width="620"
-        Height="440"
-        MinWidth="520"
-        MinHeight="380"
+        Width="680"
+        Height="520"
+        MinWidth="600"
+        MinHeight="440"
         WindowStartupLocation="CenterOwner"
         CanResize="True"
         ShowInTaskbar="False"
         Background="{DynamicResource AppSurfaceRaisedBrush}"
         Title="{l:Loc Key=error.title}">
-    <DockPanel Margin="22">
+    <DockPanel Margin="24">
+        <!-- Buttons at bottom -->
         <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal"
-                    HorizontalAlignment="Right" Spacing="8" Margin="0,16,0,0">
-            <Button MinWidth="110" Classes="secondary" Click="OnExitClick">
+                    HorizontalAlignment="Right" Spacing="10" Margin="0,16,0,0">
+            <Button x:Name="CopyLogsBtn" MinWidth="130" Classes="secondary" Click="OnCopyLogsClick"
+                    ToolTip.Tip="{l:Loc Key=error.copyLogsTip}">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Image Width="16" Height="16" Stretch="Uniform"
+                           Tag="{x:Static icons:IconKey.Copy}"
+                           Source="{Binding Tag, RelativeSource={RelativeSource Self}, Converter={StaticResource IconToImage}}"/>
+                    <TextBlock Text="{l:Loc Key=error.copyLogs}" VerticalAlignment="Center"/>
+                </StackPanel>
+            </Button>
+            <Button x:Name="CopyErrorBtn" MinWidth="130" Classes="secondary" Click="OnCopyErrorClick"
+                    ToolTip.Tip="{l:Loc Key=error.copyErrorTip}">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Image Width="16" Height="16" Stretch="Uniform"
+                           Tag="{x:Static icons:IconKey.Copy}"
+                           Source="{Binding Tag, RelativeSource={RelativeSource Self}, Converter={StaticResource IconToImage}}"/>
+                    <TextBlock Text="{l:Loc Key=error.copyError}" VerticalAlignment="Center"/>
+                </StackPanel>
+            </Button>
+            <Button x:Name="OpenLogFolderBtn" MinWidth="130" Classes="secondary" Click="OnOpenLogFolderClick"
+                    ToolTip.Tip="{l:Loc Key=error.openLogFolderTip}">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Image Width="16" Height="16" Stretch="Uniform"
+                           Tag="{x:Static icons:IconKey.Folder}"
+                           Source="{Binding Tag, RelativeSource={RelativeSource Self}, Converter={StaticResource IconToImage}}"/>
+                    <TextBlock Text="{l:Loc Key=error.openLogFolder}" VerticalAlignment="Center"/>
+                </StackPanel>
+            </Button>
+            <Button MinWidth="110" Classes="secondary" Click="OnExitClick"
+                    ToolTip.Tip="{l:Loc Key=error.exitTip}">
                 <StackPanel Orientation="Horizontal" Spacing="6">
                     <Image Width="14" Height="14" Stretch="Uniform"
                            Tag="{x:Static icons:IconKey.Close}"
@@ -23,7 +52,8 @@
                     <TextBlock Text="{l:Loc Key=error.exit}" VerticalAlignment="Center"/>
                 </StackPanel>
             </Button>
-            <Button MinWidth="110" Classes="secondary" Click="OnRestartClick">
+            <Button MinWidth="110" Classes="secondary" Click="OnRestartClick"
+                    ToolTip.Tip="{l:Loc Key=error.restartTip}">
                 <StackPanel Orientation="Horizontal" Spacing="6">
                     <Image Width="14" Height="14" Stretch="Uniform"
                            Tag="{x:Static icons:IconKey.Refresh}"
@@ -31,7 +61,8 @@
                     <TextBlock Text="{l:Loc Key=error.restart}" VerticalAlignment="Center"/>
                 </StackPanel>
             </Button>
-            <Button MinWidth="110" Classes="accent" Click="OnContinueClick">
+            <Button MinWidth="110" Classes="accent" Click="OnContinueClick"
+                    ToolTip.Tip="{l:Loc Key=error.continueTip}">
                 <StackPanel Orientation="Horizontal" Spacing="6">
                     <Image Width="14" Height="14" Stretch="Uniform"
                            Tag="{x:Static icons:IconKey.Play}"
@@ -42,37 +73,67 @@
         </StackPanel>
 
         <Grid RowDefinitions="Auto,Auto,Auto,*" ColumnDefinitions="Auto,*" Margin="0,0,0,8">
+            <!-- Icon + Title -->
             <Border Grid.Row="0" Grid.Column="0" Grid.RowSpan="2"
-                    Width="44" Height="44" CornerRadius="22"
+                    Width="48" Height="48" CornerRadius="24"
                     Background="{DynamicResource AppErrorBrush}"
-                    HorizontalAlignment="Left" VerticalAlignment="Top" Margin="0,0,14,0">
-                <Image Tag="{x:Static icons:IconKey.Warning}"
+                    HorizontalAlignment="Left" VerticalAlignment="Top" Margin="0,0,16,0">
+                <Image x:Name="ErrorIcon" Tag="{x:Static icons:IconKey.Warning}"
                        Source="{Binding Tag, RelativeSource={RelativeSource Self}, Converter={StaticResource IconToImage}}"
-                       Width="26" Height="26" Stretch="Uniform"/>
+                       Width="28" Height="28" Stretch="Uniform"/>
             </Border>
 
             <TextBlock Grid.Row="0" Grid.Column="1"
+                       x:Name="TitleText"
                        Text="{l:Loc Key=error.title}"
-                       FontSize="17" FontWeight="SemiBold"
+                       FontSize="18" FontWeight="SemiBold"
                        Foreground="{DynamicResource AppTextPrimaryBrush}"
                        VerticalAlignment="Center"/>
             <TextBlock Grid.Row="1" Grid.Column="1"
+                       x:Name="SummaryText"
                        Text="{l:Loc Key=error.summary}"
                        TextWrapping="Wrap" Margin="0,6,0,0"
                        Foreground="{DynamicResource AppTextSecondaryBrush}"/>
 
+            <!-- Details label -->
             <TextBlock Grid.Row="2" Grid.Column="1"
-                       Text="{l:Loc Key=error.detailsLabel}" Margin="0,14,0,4"
+                       Text="{l:Loc Key=error.detailsLabel}" Margin="0,16,0,6"
                        Foreground="{DynamicResource AppTextSecondaryBrush}"/>
-            <TextBox x:Name="DetailsBox"
-                     Grid.Row="3" Grid.Column="1"
-                     IsReadOnly="True"
-                     AcceptsReturn="True"
-                     TextWrapping="NoWrap"
-                     FontFamily="Cascadia Mono,Consolas,monospace"
-                     FontSize="11"
-                     ScrollViewer.VerticalScrollBarVisibility="Auto"
-                     ScrollViewer.HorizontalScrollBarVisibility="Auto"/>
+
+            <!-- Details area with tabs for Error Details / Logs -->
+            <TabControl Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2"
+                        Margin="0,0,0,0" Background="Transparent">
+                <TabItem Header="{l:Loc Key=error.tabErrorDetails}">
+                    <TextBox x:Name="ErrorDetailsBox"
+                             IsReadOnly="True"
+                             AcceptsReturn="True"
+                             TextWrapping="NoWrap"
+                             FontFamily="Cascadia Mono,Consolas,monospace"
+                             FontSize="11"
+                             Background="{DynamicResource AppSurfaceLowBrush}"
+                             BorderBrush="{DynamicResource AppBorderBrush}"
+                             BorderThickness="1"
+                             CornerRadius="4"
+                             Padding="8"
+                             ScrollViewer.VerticalScrollBarVisibility="Auto"
+                             ScrollViewer.HorizontalScrollBarVisibility="Auto"/>
+                </TabItem>
+                <TabItem Header="{l:Loc Key=error.tabRecentLogs}">
+                    <TextBox x:Name="LogDetailsBox"
+                             IsReadOnly="True"
+                             AcceptsReturn="True"
+                             TextWrapping="NoWrap"
+                             FontFamily="Cascadia Mono,Consolas,monospace"
+                             FontSize="11"
+                             Background="{DynamicResource AppSurfaceLowBrush}"
+                             BorderBrush="{DynamicResource AppBorderBrush}"
+                             BorderThickness="1"
+                             CornerRadius="4"
+                             Padding="8"
+                             ScrollViewer.VerticalScrollBarVisibility="Auto"
+                             ScrollViewer.HorizontalScrollBarVisibility="Auto"/>
+                </TabItem>
+            </TabControl>
         </Grid>
     </DockPanel>
 </Window>

@@ -13,8 +13,7 @@ public sealed class ExtractWizardViewModel : WizardViewModel<ExtractWizardResult
     {
         if (!string.IsNullOrWhiteSpace(defaultDestination))
             _destinationStep.DestinationDir = defaultDestination;
-        if (!string.IsNullOrWhiteSpace(archiveFolderName))
-            _destinationStep.SubfolderName = archiveFolderName;
+        // SubfolderName defaults to empty = extract directly to destination folder
     }
 
     private readonly ExtractDestinationStep _destinationStep = new();
@@ -31,7 +30,8 @@ public sealed class ExtractWizardViewModel : WizardViewModel<ExtractWizardResult
         _destinationStep.SubfolderName.Trim(),
         _optionsStep.Overwrite,
         _optionsStep.PreserveStructure,
-        _destinationStep.SmartSubfolder);
+        _destinationStep.SmartSubfolder,
+        _optionsStep.DeleteAfterExtract);
 }
 
 public sealed partial class ExtractDestinationStep : WizardStepViewModel
@@ -60,6 +60,9 @@ public sealed partial class ExtractOptionsStep : WizardStepViewModel
 
     [ObservableProperty]
     private bool _preserveStructure = true;
+
+    [ObservableProperty]
+    private bool _deleteAfterExtract;
 
     public override string Title => T("wizard.extract.optionsTitle");
     public override string Description => T("wizard.extract.optionsDesc");

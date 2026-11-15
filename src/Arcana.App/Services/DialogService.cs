@@ -296,6 +296,17 @@ public sealed class DialogService
         await ShowDialogAsync(dialog);
     }
 
+    public async Task<bool> ConfirmDeleteArchiveFilesAsync(IReadOnlyList<string> files)
+    {
+        if (MainWindow == null || files.Count == 0)
+            return false;
+
+        var vm = new DeleteFilesConfirmViewModel(files);
+        var dialog = new DeleteFilesConfirmDialog { DataContext = vm };
+        await ShowDialogAsync(dialog);
+        return vm.Confirmed;
+    }
+
     public static void OpenInFileManager(string path)
     {
         try

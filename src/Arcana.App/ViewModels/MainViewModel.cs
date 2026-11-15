@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
@@ -87,6 +88,7 @@ public partial class MainViewModel : ObservableObject
     private string? _currentPath;
     private string? _currentPassword;
     private readonly List<string> _externalDirectories = [];
+    private CancellationTokenSource? _openingCts;
 
     public IconThemeService IconThemes => _themes;
     public ColorThemeService ColorThemes => _colorThemes;
@@ -329,16 +331,18 @@ public partial class MainViewModel : ObservableObject
         if (checkUnsaved && !await ConfirmCloseAsync()) return;
         if (path == _currentPath) password ??= _currentPassword;
         Log.Information("Opening archive {Path}", path);
-        if (!await RunBusyAsync(T("msg.busy.opening", Path.GetFileName(path)), async () =>
+        if (!await RunOpeningAsync(T("msg.busy.opening", Path.GetFileName(path)), async (progress, ct) =>
         {
             Archive archive;
             while (true)
             {
+                ct.ThrowIfCancellationRequested();
                 try
                 {
-                    archive = await _archiveService.OpenAsync(path, password: password);
+                    archive = await _archiveService.OpenAsync(path, ct, password, progress);
                     break;
                 }
+                catch (OperationCanceledException) { throw; }
                 catch (Exception ex) when (ex is SharpCompress.Common.CryptographicException
                     or System.Security.Cryptography.CryptographicException)
                 {
@@ -357,6 +361,67 @@ public partial class MainViewModel : ObservableObject
             });
         })) return;
         _recent.Add(path);
+    }
+
+    /// <summary>
+    /// Runs archive opening with the non-modal overlay (keeps app responsive).
+    /// Returns true on success, false on cancel/error.
+    /// </summary>
+    private async Task<bool> RunOpeningAsync(string busyText, Func<IProgress<ProgressReport>, CancellationToken, Task> work)
+    {
+        _openingCts = new CancellationTokenSource();
+        var cts = _openingCts;
+        IsBusy = true;
+        BusyText = busyText;
+        StatusText = busyText;
+        
+        try
+        {
+            Log.Debug("Opening archive: {BusyText}", busyText);
+            await Task.Run(() => work(new Progress<ProgressReport>(r => Dispatcher.UIThread.Post(() => UpdateOpeningProgress(r, busyText))), cts.Token), cts.Token);
+            return true;
+        }
+        catch (OperationCanceledException)
+        {
+            Log.Information("Archive opening cancelled");
+            return false;
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Archive opening failed: {BusyText}", busyText);
+            await _dialogs.ShowInfoAsync(T("msg.error"), ex.Message);
+            StatusText = T("msg.error");
+            return false;
+        }
+        finally
+        {
+            if (_openingCts == cts) _openingCts = null;
+            IsBusy = false;
+            BusyText = "";
+            UpdateStatus();
+        }
+    }
+
+    /// <summary>
+    /// Cancels any ongoing archive opening operation.
+    /// </summary>
+    public void CancelCurrentOperation()
+    {
+        _openingCts?.Cancel();
+        _openingCts = null;
+    }
+
+    private void UpdateOpeningProgress(ProgressReport r, string busyText)
+    {
+        if (r.TotalFiles > 0)
+        {
+            var done = Math.Clamp(r.FilesProcessed, 0, r.TotalFiles);
+            BusyText = $"{busyText} - {done}/{r.TotalFiles}";
+        }
+        else
+        {
+            BusyText = $"{busyText} - {r.FilesProcessed} entries read";
+        }
     }
 
     [RelayCommand(CanExecute = nameof(CanExtract))]
@@ -395,11 +460,13 @@ public partial class MainViewModel : ObservableObject
         }
 
         var extractedFiles = new List<ExtractedFile>();
+        var extractOptions = BuildOptions(archive.Format);
         if (!await RunProgressAsync(T("msg.busy.extracting"), false, nodes.Sum(n => n.OriginalSize),
             async (progress, ct) =>
             {
                 var r = await ArchiveExtractor.ExtractAsync(nodes, targetDir, choice.Overwrite, progress, ct, choice.PreserveStructure,
-                    async path => await Dispatcher.UIThread.InvokeAsync(() => _dialogs.ResolveConflictAsync(path)));
+                    async path => await Dispatcher.UIThread.InvokeAsync(() => _dialogs.ResolveConflictAsync(path)),
+                    extractOptions.EnableParallel ? extractOptions.ThreadCount : null);
                 extractedFiles.AddRange(r.Files);
             })) return;
 
@@ -409,6 +476,120 @@ public partial class MainViewModel : ObservableObject
         var overwritten = extractedFiles.Count(f => f.Status == ExtractStatus.Overwritten);
         var summary = T("msg.extractSummary", extracted, skipped, overwritten);
         await _dialogs.ShowExtractCompleteAsync(T("msg.extractComplete"), summary, targetDir, extractedFiles);
+
+        if (choice.DeleteAfterExtract && _currentPath != null)
+        {
+            // Windows refuses to delete a file the process still has open, and the open
+            // archive keeps every volume handle alive. Close it first, then delete.
+            var archivePath = _currentPath;
+            CloseCurrentArchive();
+            await DeleteArchiveFilesAsync(archivePath);
+        }
+    }
+
+    /// <summary>
+    /// Drops the open archive so its file handles are released and the tree no longer points
+    /// at it. Used when the archive's own files are about to be deleted.
+    /// </summary>
+    private void CloseCurrentArchive()
+    {
+        Log.Information("Closing archive {Path} to release its files", _currentPath);
+        Preview.Clear();
+        Archive.Close();
+        _archiveService.Close();
+        _currentPath = null;
+        _currentPassword = null;
+        ArchiveName = "";
+        RefreshSelectionCommands();
+        UpdateStatus();
+    }
+
+    private async Task DeleteArchiveFilesAsync(string archivePath)
+    {
+        var failed = new List<string>();
+        try
+        {
+            var filesToDelete = FindMultiVolumeParts(archivePath).Where(File.Exists).ToList();
+            if (filesToDelete.Count == 0)
+                return;
+
+            var confirm = await _dialogs.ConfirmDeleteArchiveFilesAsync(filesToDelete);
+            if (!confirm)
+            {
+                Log.Information("User cancelled archive file deletion");
+                return;
+            }
+
+            // One locked volume must not abort the rest: delete what can be deleted and
+            // report the leftovers instead of failing silently.
+            foreach (var file in filesToDelete)
+            {
+                try
+                {
+                    File.Delete(file);
+                    Log.Information("Deleted archive part: {Path}", file);
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    failed.Add(file);
+                    Log.Warning(ex, "Could not delete archive part: {Path}", file);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Could not delete archive file(s) after extraction: {Path}", archivePath);
+            failed.Add(archivePath);
+        }
+
+        if (failed.Count > 0)
+            await _dialogs.ShowInfoAsync(T("msg.error"), T("msg.deleteArchiveFailed", failed.Count));
+    }
+
+    private static IEnumerable<string> FindMultiVolumeParts(string archivePath)
+    {
+        var dir = Path.GetDirectoryName(archivePath) ?? "";
+        var fileName = Path.GetFileName(archivePath);
+        var ext = Path.GetExtension(fileName);
+        var baseName = Path.GetFileNameWithoutExtension(fileName);
+
+        yield return archivePath;
+
+        if (baseName.EndsWith(".part", StringComparison.OrdinalIgnoreCase)
+            || baseName.EndsWith(".part1", StringComparison.OrdinalIgnoreCase)
+            || Regex.IsMatch(baseName, @"\.part\d+$", RegexOptions.IgnoreCase))
+        {
+            var prefix = Regex.Replace(baseName, @"\.part\d+$", "", RegexOptions.IgnoreCase);
+            var pattern = prefix + ".part*" + ext;
+            foreach (var part in Directory.EnumerateFiles(dir, pattern))
+            {
+                if (!string.Equals(part, archivePath, StringComparison.OrdinalIgnoreCase))
+                    yield return part;
+            }
+        }
+        else if (baseName.EndsWith(".001", StringComparison.OrdinalIgnoreCase))
+        {
+            var prefix = baseName[..^4];
+            var pattern = prefix + ".*" + ext;
+            foreach (var part in Directory.EnumerateFiles(dir, pattern))
+            {
+                if (!string.Equals(part, archivePath, StringComparison.OrdinalIgnoreCase))
+                    yield return part;
+            }
+        }
+        else
+        {
+            var pattern = baseName + ".part*" + ext;
+            foreach (var part in Directory.EnumerateFiles(dir, pattern))
+                yield return part;
+
+            pattern = baseName + ".*" + ext;
+            foreach (var part in Directory.EnumerateFiles(dir, pattern))
+            {
+                if (!string.Equals(part, archivePath, StringComparison.OrdinalIgnoreCase) && part.EndsWith(ext, StringComparison.OrdinalIgnoreCase))
+                    yield return part;
+            }
+        }
     }
 
     /// <summary>
@@ -466,11 +647,13 @@ public partial class MainViewModel : ObservableObject
             return;
 
         var extractedFiles = new List<ExtractedFile>();
+        var extractOptions = BuildOptions(archive.Format);
         if (!await RunProgressAsync(T("msg.busy.extracting"), false, nodes.Sum(n => n.OriginalSize),
             async (progress, ct) =>
             {
-                var r = await ArchiveExtractor.ExtractAsync(nodes, targetDir, overwrite: false, progress, ct,
-                    resolveConflict: async path => await Dispatcher.UIThread.InvokeAsync(() => _dialogs.ResolveConflictAsync(path)));
+                var r = await ArchiveExtractor.ExtractAsync(nodes, targetDir, overwrite: false, progress, ct, preserveStructure: true,
+                    resolveConflict: async path => await Dispatcher.UIThread.InvokeAsync(() => _dialogs.ResolveConflictAsync(path)),
+                    maxParallel: extractOptions.EnableParallel ? extractOptions.ThreadCount : null);
                 extractedFiles.AddRange(r.Files);
             })) return;
 
@@ -491,7 +674,9 @@ public partial class MainViewModel : ObservableObject
             return;
 
         IReadOnlyList<TestResult> results = Array.Empty<TestResult>();
-        var entries = archive.Entries.Count(e => !e.IsDirectory && e.Path.StartsWith(node.FullPath, StringComparison.Ordinal));
+        var entries = archive.Vfs.EnumerateNodes()
+            .Where(e => e.Type == NodeType.File && e.FullPath.StartsWith(node.FullPath, StringComparison.Ordinal))
+            .Sum(e => e.OriginalSize);
         if (!await RunProgressAsync(T("msg.busy.testing"), false, entries,
             async (progress, ct) =>
             {
@@ -570,7 +755,13 @@ public partial class MainViewModel : ObservableObject
 
     public async Task<bool> ConfirmCloseAsync()
     {
-        if (IsBusy) return false;
+        // Cancel any ongoing archive opening first
+        if (IsBusy)
+        {
+            CancelCurrentOperation();
+            // Wait briefly for the operation to actually cancel
+            await Task.Delay(100);
+        }
         if (Archive.Archive?.Vfs.HasDirtyNodes != true) return true;
         return await _dialogs.ConfirmUnsavedAsync() switch
         {
@@ -1238,7 +1429,7 @@ public partial class MainViewModel : ObservableObject
         try
         {
             await ProgressDialog.ShowAsync(owner, title, showChart, totalOriginalBytes,
-                (p, ct) => Task.Run(() => work(p, ct), ct));
+                async (p, ct) => await work(p, ct));
             IsBusy = false;
             UpdateStatus();
             return true;

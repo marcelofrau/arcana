@@ -26,6 +26,6 @@ public sealed record CreateWizardResult(
     string Path, string Format, int Level, IReadOnlyList<string> Files, string Password);
 
 public sealed record ExtractWizardResult(
-    string DestinationDir, string SubfolderName, bool Overwrite, bool PreserveStructure, bool SmartSubfolder);
+    string DestinationDir, string SubfolderName, bool Overwrite, bool PreserveStructure, bool SmartSubfolder, bool DeleteAfterExtract = false);
 
 public sealed record ConvertWizardResult(string Format, int Level, string Path);

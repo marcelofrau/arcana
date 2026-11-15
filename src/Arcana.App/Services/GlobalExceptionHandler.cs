@@ -1,9 +1,11 @@
 using System.Diagnostics;
+using System.IO;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
 using Arcana.App.Views.Dialogs;
+using Arcana.Core.Logging;
 using Serilog;
 
 namespace Arcana.App.Services;
@@ -86,6 +88,28 @@ public static class GlobalExceptionHandler
 
             var dialog = new ErrorDialog();
             dialog.SetDetails(exception.ToString());
+            
+            // Add recent logs to the dialog
+            var logDir = LogConfig.LogDirectory;
+            if (Directory.Exists(logDir))
+            {
+                var logFiles = Directory.GetFiles(logDir, "arcana-*.log")
+                    .OrderByDescending(f => f)
+                    .Take(3);
+                var logContent = "";
+                foreach (var file in logFiles)
+                {
+                    try
+                    {
+                        var lines = await File.ReadAllLinesAsync(file);
+                        logContent += $"=== {Path.GetFileName(file)} ===\n";
+                        logContent += string.Join("\n", lines.TakeLast(200)) + "\n\n";
+                    }
+                    catch { }
+                }
+                dialog.SetLogDetails(logContent);
+            }
+
             if (owner != null)
                 return await ModalHost.ShowAsync<ErrorDialogResult>(owner, dialog);
 

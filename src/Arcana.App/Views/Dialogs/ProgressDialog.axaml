@@ -4,6 +4,7 @@
         xmlns:controls="using:Arcana.App.Controls"
         xmlns:l="using:Arcana.App.Localization"
         xmlns:icons="using:Arcana.App.Icons"
+        xmlns:conv="using:Arcana.App.Converters"
         x:Class="Arcana.App.Views.Dialogs.ProgressDialog"
         x:DataType="vm:ProgressViewModel"
         Width="580"
@@ -13,6 +14,10 @@
         ShowInTaskbar="False"
         Background="{DynamicResource AppSurfaceLowBrush}"
         Title="{Binding Title}">
+    <Window.Resources>
+        <conv:IsPositiveConverter x:Key="IsPositiveConverter"/>
+        <conv:IsNegativeConverter x:Key="IsNegativeConverter"/>
+    </Window.Resources>
     <Grid ClipToBounds="True">
         <!-- Ambient glow orbs -->
         <Ellipse Width="420" Height="300" HorizontalAlignment="Center" VerticalAlignment="Top"
@@ -77,11 +82,19 @@
                     <TextBlock Text="{Binding OverallPercent, StringFormat={}{0:0}%}"
                                MinWidth="96" HorizontalAlignment="Left"
                                FontSize="42" FontWeight="SemiBold"
-                               Foreground="{DynamicResource AppAccentBrush}"/>
+                               Foreground="{DynamicResource AppAccentBrush}"
+                               IsVisible="{Binding OverallPercent, Converter={StaticResource IsPositiveConverter}}"/>
+                    <TextBlock Text="—"
+                               MinWidth="96" HorizontalAlignment="Left"
+                               FontSize="42" FontWeight="SemiBold"
+                               Foreground="{DynamicResource AppAccentBrush}"
+                               IsVisible="{Binding OverallPercent, Converter={StaticResource IsNegativeConverter}}"/>
                     <StackPanel Grid.Column="1" Spacing="5" VerticalAlignment="Center">
                         <ProgressBar Value="{Binding OverallPercent}"
                                      Minimum="0" Maximum="100"
+                                     IsIndeterminate="{Binding OverallPercent, Converter={StaticResource IsNegativeConverter}}"
                                      Height="10" CornerRadius="5"
+                                     ToolTip.Tip="{l:Loc Key=progress.overallBarTip}"
                                      Background="{DynamicResource AppSurfaceLowBrush}">
                             <ProgressBar.Foreground>
                                 <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
@@ -90,6 +103,15 @@
                                 </LinearGradientBrush>
                             </ProgressBar.Foreground>
                         </ProgressBar>
+                        <!-- Archive side of the same operation: the gap under the main bar is
+                             the compression ratio. -->
+                        <ProgressBar Value="{Binding ArchivePercent}"
+                                     Minimum="0" Maximum="100"
+                                     IsVisible="{Binding HasArchiveBar}"
+                                     Height="4" CornerRadius="2"
+                                     ToolTip.Tip="{l:Loc Key=progress.archiveBarTip}"
+                                     Foreground="{DynamicResource AppTextSecondaryBrush}"
+                                     Background="{DynamicResource AppSurfaceLowBrush}"/>
                         <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding HasSizeText}">
                             <TextBlock Text="{Binding SizeText}"
                                        FontSize="12"
@@ -125,6 +147,7 @@
                         <ProgressBar Value="{Binding FilePercent}"
                                      Minimum="0" Maximum="100"
                                      Height="4" CornerRadius="2"
+                                     ToolTip.Tip="{l:Loc Key=progress.fileBarTip}"
                                      Foreground="{DynamicResource AppAccentBrush}"
                                      Background="{DynamicResource AppSurfaceLowBrush}"/>
                     </StackPanel>
@@ -135,17 +158,37 @@
                         Background="{DynamicResource AppSurfaceRaisedBrush}"
                         BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1">
                     <StackPanel Spacing="6">
-                        <Grid ColumnDefinitions="*,Auto">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                             <TextBlock Text="{l:Loc Key=progress.speed}"
                                        FontSize="11" FontWeight="SemiBold"
+                                       VerticalAlignment="Center"
                                        Foreground="{DynamicResource AppTextSecondaryBrush}"/>
-                            <TextBlock Grid.Column="1" Text="{Binding SpeedText}"
-                                       FontSize="13" FontWeight="SemiBold"
-                                       Foreground="{DynamicResource AppAccentBrush}"/>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="12">
+                                <StackPanel Orientation="Horizontal" Spacing="5"
+                                            ToolTip.Tip="{l:Loc Key=progress.speedTip}">
+                                    <Ellipse Width="8" Height="8" VerticalAlignment="Center"
+                                             Fill="{DynamicResource AppAccentBrush}"/>
+                                    <TextBlock Text="{Binding SpeedText}"
+                                               FontSize="13" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource AppAccentBrush}"/>
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Spacing="5"
+                                            IsVisible="{Binding HasArchiveSpeed}"
+                                            ToolTip.Tip="{l:Loc Key=progress.archiveSpeedTip}">
+                                    <Ellipse Width="8" Height="8" VerticalAlignment="Center"
+                                             Fill="#4EA1F0"/>
+                                    <TextBlock Text="{Binding ArchiveSpeedText}"
+                                               FontSize="13" FontWeight="SemiBold"
+                                               Foreground="#4EA1F0"/>
+                                </StackPanel>
+                            </StackPanel>
                         </Grid>
                         <controls:SpeedChart Height="84"
                                              Samples="{Binding SpeedSamples}"
+                                             ArchiveSamples="{Binding ArchiveSamples}"
+                                             WindowSeconds="60"
                                              LineBrush="{DynamicResource AppAccentBrush}"
+                                             ArchiveBrush="#4EA1F0"
                                              TextBrush="{DynamicResource AppTextSecondaryBrush}"
                                              GridBrush="{DynamicResource AppDividerBrush}"/>
                     </StackPanel>
@@ -188,6 +231,9 @@
                                            Foreground="{DynamicResource AppTextSecondaryBrush}"/>
                                 <TextBlock Text="{Binding SpeedText}" FontSize="13" FontWeight="SemiBold"
                                            Foreground="{DynamicResource AppTextPrimaryBrush}"/>
+                                <TextBlock Text="{Binding RatioText}" FontSize="11"
+                                           IsVisible="{Binding HasArchiveBar}"
+                                           Foreground="{DynamicResource AppTextSecondaryBrush}"/>
                             </StackPanel>
                         </Border>
                         <Border Grid.Column="1" CornerRadius="8" Padding="10,8"

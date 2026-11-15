@@ -34,8 +34,15 @@ public partial class ProgressDialog : Window
         var shown = dialog.ShowDialog(owner);
         try
         {
-            await work(progress, vm.CancelSource.Token);
+            // Run the work off the UI thread: a long synchronous prologue (path checks over
+            // a 274k-entry archive) would otherwise freeze the app before the dialog paints.
+            await Task.Run(() => work(progress, vm.CancelSource.Token));
             vm.Complete();
+        }
+        catch (OperationCanceledException)
+        {
+            vm.CancelSource.Cancel();
+            throw;
         }
         finally
         {

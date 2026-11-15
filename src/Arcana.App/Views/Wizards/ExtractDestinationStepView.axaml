@@ -28,15 +28,16 @@
             <TextBlock Grid.Row="1" Text="{l:Loc Key=wizard.extract.subfolderLabel}" VerticalAlignment="Center"
                        Foreground="{DynamicResource AppTextPrimaryBrush}"/>
             <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding SubfolderName, Mode=TwoWay}"
+                     PlaceholderText="{l:Loc Key=wizard.extract.subfolderWatermark}"
                      Background="{DynamicResource AppBackgroundBrush}"
                      Foreground="{DynamicResource AppTextPrimaryBrush}"
                      BorderBrush="{DynamicResource AppBorderBrush}"
                      Padding="6,4"/>
         </Grid>
 
-        <CheckBox IsChecked="{Binding SmartSubfolder}" ToolTip.Tip="{l:Loc Key=wizard.extract.smartTip}">
-            <TextBlock Text="{l:Loc Key=wizard.extract.smartLabel}"
-                       Foreground="{DynamicResource AppTextPrimaryBrush}"/>
+        <CheckBox IsChecked="{Binding SmartSubfolder}" ToolTip.Tip="{l:Loc Key=wizard.extract.smartTip}"
+                  Foreground="{DynamicResource AppTextPrimaryBrush}">
+            <TextBlock Text="{l:Loc Key=wizard.extract.smartLabel}"/>
         </CheckBox>
 
         <TextBlock Text="{l:Loc Key=wizard.extract.subfolderHint}"
