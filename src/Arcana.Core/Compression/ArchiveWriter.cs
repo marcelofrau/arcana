@@ -34,12 +34,15 @@ public static class ArchiveWriter
         Log.Debug("Saving {Format} to {Path}", options.Format, path);
         return AtomicFile.WriteAsync(path, async (output, token) =>
         {
+            var verifyThrottle = new ProgressThrottle();
+            var verified = 0;
             foreach (var node in archive.Vfs.EnumerateNodes().Where(n => n.Type == NodeType.File && (n.Crc32.HasValue || archive.IsEncrypted)))
             {
-                progress?.Report(new ProgressReport { CurrentFile = node.Name, CurrentOperation = "Verifying" });
+                if (verifyThrottle.ShouldReport(++verified))
+                    progress?.Report(new ProgressReport { CurrentFile = node.Name, CurrentOperation = "Verifying" });
                 await ArchiveContent.CopyVerifiedAsync(node, Stream.Null, token).ConfigureAwait(false);
             }
-            using var counted = new ProgressStream(output, progress, operation: "Compressing", isOutput: true, leaveOpen: true, cancellationToken: token);
+            using var counted = new ProgressStream(output, progress, operation: "Compressing", isOutput: true, leaveOpen: true, cancellationToken: token, compressedOutput: true);
             await engine.SaveAsync(archive, counted, options, progress, token).ConfigureAwait(false);
         }, ct);
     }

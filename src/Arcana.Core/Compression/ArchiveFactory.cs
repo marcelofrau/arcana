@@ -1,3 +1,4 @@
+using Arcana.Core.Filesystem;
 using Serilog;
 
 namespace Arcana.Core.Compression;
@@ -101,15 +102,72 @@ public static class ArchiveFactory
 
     public static Archive Open(string path, string? password = null, AccessMode mode = AccessMode.Read)
     {
-        using var stream = File.OpenRead(path);
-        var format = GetFormatFromPathOrHeader(path, stream);
-        SetPassword(format, password);
-        var archive = format.Open(path, stream, mode);
-        archive.Password = password;
-        if (archive.SourcePaths.Count == 0) archive.SourcePaths = [Path.GetFullPath(path)];
-        archive.SyncNodeMetadata();
-        archive.Vfs.MarkAllClean();
-        return archive;
+        try
+        {
+            using var stream = File.OpenRead(path);
+            var format = GetFormatFromPathOrHeader(path, stream);
+            SetPassword(format, password);
+            var archive = format.Open(path, stream, mode);
+            archive.Password = password;
+            if (archive.SourcePaths.Count == 0) archive.SourcePaths = [Path.GetFullPath(path)];
+            archive.SyncNodeMetadata();
+            archive.Vfs.MarkAllClean();
+            ValidatePasswordAsync(archive).GetAwaiter().GetResult();
+            return archive;
+        }
+        catch (Exception ex)
+        {
+            var normalized = NormalizePasswordError(ex);
+            if (ReferenceEquals(normalized, ex)) throw;
+            throw normalized;
+        }
+    }
+
+    /// <summary>SharpCompress reports a bad ZIP password as InvalidFormatException("bad password");
+    /// normalize it so callers can offer a password prompt instead of a generic error.</summary>
+    private static Exception NormalizePasswordError(Exception ex)
+    {
+        if (ex is SharpCompress.Common.InvalidFormatException
+            && ex.Message.Contains("password", StringComparison.OrdinalIgnoreCase))
+        {
+            Log.Debug("Normalizing password failure: {Message}", ex.Message);
+            return new SharpCompress.Common.CryptographicException(ex.Message);
+        }
+        return ex;
+    }
+
+    /// <summary>
+    /// Reads the smallest encrypted entry once so a wrong password fails here instead of
+    /// mid-extraction, after files were already written. Rethrows the cryptographic error;
+    /// other failures only warn (a damaged entry must not block opening).
+    /// </summary>
+    private static async Task ValidatePasswordAsync(Archive archive, CancellationToken ct = default)
+    {
+        if (archive.Password == null) return;
+
+        var encrypted = archive.Entries
+            .Where(e => e.IsEncrypted && !e.IsDirectory)
+            .Select(e => e.Path)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        if (encrypted.Count == 0) return;
+
+        var node = archive.Vfs.EnumerateNodes()
+            .Where(n => n.Type == NodeType.File && encrypted.Contains(n.FullPath.TrimStart('/')))
+            .OrderBy(n => n.OriginalSize)
+            .FirstOrDefault();
+        if (node == null) return;
+
+        try
+        {
+            await using var content = node.OpenRead();
+            _ = await content.ReadAsync(new byte[4096].AsMemory(), ct);
+            Log.Debug("Password accepted for encrypted entry {Path}", node.FullPath);
+        }
+        catch (Exception ex) when (ex is not SharpCompress.Common.CryptographicException
+            and not System.Security.Cryptography.CryptographicException)
+        {
+            Log.Warning(ex, "Could not probe encrypted entry {Path}; opening without password check", node.FullPath);
+        }
     }
 
     private static bool IsTarHeader(Stream stream)
@@ -151,7 +209,8 @@ public static class ArchiveFactory
         }
     }
 
-    public static async Task<Archive> OpenAsync(string path, string? password = null, AccessMode mode = AccessMode.Read, CancellationToken ct = default)
+    public static async Task<Archive> OpenAsync(string path, string? password = null, AccessMode mode = AccessMode.Read, CancellationToken ct = default,
+                                        IProgress<ProgressReport>? progress = null)
     {
         Log.Information("Opening archive {Path}", path);
         try
@@ -159,17 +218,20 @@ public static class ArchiveFactory
             using var stream = File.OpenRead(path);
             var format = GetFormatFromPathOrHeader(path, stream);
             SetPassword(format, password);
-            var archive = await format.OpenAsync(path, stream, mode, ct);
+            var archive = await format.OpenAsync(path, stream, mode, ct, progress);
             archive.Password = password;
             if (archive.SourcePaths.Count == 0) archive.SourcePaths = [Path.GetFullPath(path)];
             archive.SyncNodeMetadata();
             archive.Vfs.MarkAllClean();
+            await ValidatePasswordAsync(archive, ct);
             return archive;
         }
         catch (Exception ex)
         {
             Log.Error(ex, "Failed to open {Path}: {Message}", path, ex.Message);
-            throw;
+            var normalized = NormalizePasswordError(ex);
+            if (ReferenceEquals(normalized, ex)) throw;
+            throw normalized;
         }
     }
 

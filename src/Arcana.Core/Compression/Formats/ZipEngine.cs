@@ -24,7 +24,8 @@ public class ZipEngine : IArchiveFormat
     public Archive Open(string path, Stream stream, AccessMode mode, CancellationToken ct = default)
         => OpenAsync(path, stream, mode, ct).GetAwaiter().GetResult();
 
-    public async Task<Archive> OpenAsync(string path, Stream stream, AccessMode mode, CancellationToken ct = default)
+    public async Task<Archive> OpenAsync(string path, Stream stream, AccessMode mode, CancellationToken ct = default,
+                                         IProgress<ProgressReport>? progress = null)
     {
         _log.Verbose("Opening {Path} with mode {Mode}", path, mode);
         var vfs = new Filesystem.VirtualFileSystem();
@@ -56,6 +57,17 @@ public class ZipEngine : IArchiveFormat
             var gate = new SemaphoreSlim(1, 1);
             var entries = new List<ArchiveEntry>();
             var passwordChecked = false;
+            var entryCount = 0;
+            var throttle = new ProgressThrottle();
+
+            // Report initial indeterminate progress
+            progress?.Report(new ProgressReport
+            {
+                CurrentFile = Path.GetFileName(path),
+                FilesProcessed = 0,
+                TotalFiles = 0,
+                CurrentOperation = "Reading archive",
+            });
 
             foreach (var entry in zip.Entries)
             {
@@ -82,31 +94,53 @@ public class ZipEngine : IArchiveFormat
                         IsDirectory = true,
                         LastModified = NormalizeTimestamp(entry.LastModifiedTime),
                     });
-                    continue;
+                }
+                else
+                {
+                    var node = vfs.AddLazyFile(key, () =>
+                    {
+                        gate.Wait();
+                        try { return new Filesystem.ArchiveEntryStream(entry.OpenEntryStream(), entry.Size, gate); }
+                        catch (Exception ex) { gate.Release(); _log.Warning(ex, "Could not open ZIP entry {Path}", key); throw; }
+                    });
+                    node.OriginalSize = entry.Size;
+                    node.Crc32 = entry.IsEncrypted && entry.Crc == 0 ? null : (uint)entry.Crc;
+                    node.LastModified = NormalizeTimestamp(entry.LastModifiedTime);
+
+                    entries.Add(new ArchiveEntry
+                    {
+                        Path = key,
+                        Name = System.IO.Path.GetFileName(key),
+                        Size = entry.Size,
+                        CompressedSize = entry.CompressedSize,
+                        Crc32 = (uint)entry.Crc,
+                        IsEncrypted = entry.IsEncrypted,
+                        IsDirectory = false,
+                        LastModified = NormalizeTimestamp(entry.LastModifiedTime),
+                    });
                 }
 
-                var node = vfs.AddLazyFile(key, () =>
+                entryCount++;
+                if (throttle.ShouldReport(entryCount))
                 {
-                    gate.Wait();
-                    try { return new Filesystem.ArchiveEntryStream(entry.OpenEntryStream(), entry.Size, gate); }
-                    catch (Exception ex) { gate.Release(); _log.Warning(ex, "Could not open ZIP entry {Path}", key); throw; }
-                });
-                node.OriginalSize = entry.Size;
-                node.Crc32 = entry.IsEncrypted && entry.Crc == 0 ? null : (uint)entry.Crc;
-                node.LastModified = NormalizeTimestamp(entry.LastModifiedTime);
-
-                entries.Add(new ArchiveEntry
-                {
-                    Path = key,
-                    Name = System.IO.Path.GetFileName(key),
-                    Size = entry.Size,
-                    CompressedSize = entry.CompressedSize,
-                    Crc32 = (uint)entry.Crc,
-                    IsEncrypted = entry.IsEncrypted,
-                    IsDirectory = false,
-                    LastModified = NormalizeTimestamp(entry.LastModifiedTime),
-                });
+                    progress?.Report(new ProgressReport
+                    {
+                        CurrentFile = entry.Key ?? "",
+                        FilesProcessed = entryCount,
+                        TotalFiles = 0, // Unknown total
+                        CurrentOperation = "Reading archive",
+                    });
+                }
             }
+
+            // Final progress
+            progress?.Report(new ProgressReport
+            {
+                CurrentFile = "",
+                FilesProcessed = entryCount,
+                TotalFiles = entryCount,
+                CurrentOperation = "Reading archive",
+            });
 
             _log.Information("Opened {Path} with {EntryCount} entries", path, entries.Count);
             return new Archive

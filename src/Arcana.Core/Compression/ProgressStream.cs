@@ -7,13 +7,17 @@ namespace Arcana.Core.Compression;
 /// Forwarding stream that counts bytes read (or written) and reports progress with
 /// throttling (every <see cref="ReportIntervalBytes"/> bytes or ~100 ms). Used to wrap
 /// entry content streams (read side) and the compressed output stream (write side),
-/// feeding a merged <see cref="ProgressReport"/> to the UI.
+/// feeding a merged <see cref="ProgressReport"/> to the UI. <c>baseBytes</c> keeps the reported
+/// byte count cumulative when the stream covers one file of a larger operation.
 /// </summary>
 public sealed class ProgressStream : Stream
 {
     private const long ReportIntervalBytes = 128 * 1024;
     private const long ReportIntervalMs = 100;
 
+    private readonly long _baseBytes;
+    private readonly long _compressedBaseBytes;
+    private readonly double _compressedScale;
     private readonly Stream _inner;
     private readonly IProgress<ProgressReport>? _progress;
     private readonly string? _currentFile;
@@ -23,6 +27,7 @@ public sealed class ProgressStream : Stream
     private readonly long _totalBytes;
     private readonly Stopwatch _stopwatch = Stopwatch.StartNew();
     private readonly bool _isOutput;
+    private readonly bool _compressedOutput;
     private readonly bool _leaveOpen;
     private readonly CancellationToken _cancellationToken;
 
@@ -33,7 +38,8 @@ public sealed class ProgressStream : Stream
     public ProgressStream(Stream inner, IProgress<ProgressReport>? progress,
         string? currentFile = null, long totalBytes = 0,
         int filesProcessed = 0, int totalFiles = 0,
-        string? operation = null, bool isOutput = false, bool leaveOpen = false, CancellationToken cancellationToken = default)
+        string? operation = null, bool isOutput = false, bool leaveOpen = false, CancellationToken cancellationToken = default,
+        long baseBytes = 0, bool compressedOutput = false, long compressedBaseBytes = 0, double compressedScale = 0)
     {
         _inner = inner;
         _progress = progress;
@@ -43,8 +49,12 @@ public sealed class ProgressStream : Stream
         _totalFiles = totalFiles;
         _operation = operation;
         _isOutput = isOutput;
+        _compressedOutput = compressedOutput;
         _leaveOpen = leaveOpen;
         _cancellationToken = cancellationToken;
+        _baseBytes = baseBytes;
+        _compressedBaseBytes = compressedBaseBytes;
+        _compressedScale = compressedScale;
     }
 
     public override bool CanRead => _inner.CanRead;
@@ -154,13 +164,18 @@ public sealed class ProgressStream : Stream
         _progress?.Report(new ProgressReport
         {
             CurrentFile = _currentFile,
-            BytesProcessed = processed,
+            BytesProcessed = _baseBytes + processed,
             TotalBytes = _totalBytes,
             FilesProcessed = _filesProcessed,
             TotalFiles = _totalFiles,
             CurrentOperation = _operation,
             Elapsed = _stopwatch.Elapsed,
-            CompressedBytes = _isOutput ? _written : 0,
+            // Extraction cannot measure the archive side directly, so it scales the plain
+            // bytes by the entry's compression ratio: the second chart line moves instead
+            // of waiting for the entry to finish.
+            CompressedBytes = _compressedOutput
+                ? _written
+                : _compressedScale > 0 ? _compressedBaseBytes + (long)(processed * _compressedScale) : 0,
         });
 
         _lastBytesAtReport = processed;

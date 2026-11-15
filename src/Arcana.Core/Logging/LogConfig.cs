@@ -22,9 +22,11 @@ public static class LogConfig
             .WriteTo.File(
                 logFile,
                 rollingInterval: RollingInterval.Day,
+                retainedFileCountLimit: null, // LogMaintenance owns retention and compression
                 outputTemplate: "[{Timestamp:yyyy-MM-dd HH:mm:ss.fff} {Level:u3}] {Message:lj}{NewLine}{Exception}")
             .CreateLogger();
         Log.Information("Arcana logging initialized (file {LogFile})", logFile);
+        LogMaintenance.RunInBackground(LogDirectory);
     }
 
     public static void SetLevel(string level)

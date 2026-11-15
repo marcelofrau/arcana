@@ -171,6 +171,32 @@ public class EncryptionTests
         decoded.ToArray().Should().Equal(Lorem);
     }
 
+    [Fact]
+    public async Task OpeningZipWithWrongPassword_FailsAtOpenInsteadOfExtraction()
+    {
+        var engine = new ZipEngine();
+        using var archive = CreateArchive(engine, "secret.txt", Lorem);
+        var path = Path.Combine(Path.GetTempPath(), $"arcana-pw-{Guid.NewGuid():N}.zip");
+        try
+        {
+            using (var output = File.Create(path))
+                await engine.SaveAsync(archive, output, new CompressionOptions
+                {
+                    Encryption = new EncryptionOptions { Password = Password },
+                });
+
+            var act = () => ArchiveFactory.Open(path, WrongPassword);
+            act.Should().Throw<SharpCompress.Common.CryptographicException>();
+
+            using var ok = ArchiveFactory.Open(path, Password);
+            ok.Entries.Should().ContainSingle();
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
     private static void WriteLegacySevenZip(SevenZipEngine engine, Archive archive, Stream output)
     {
         using var plain = new MemoryStream();

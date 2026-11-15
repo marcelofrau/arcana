@@ -11,7 +11,8 @@ public interface IArchiveFormat
     bool SupportsVolumes { get; }
 
     Archive Open(string path, Stream stream, AccessMode mode, CancellationToken ct = default);
-    Task<Archive> OpenAsync(string path, Stream stream, AccessMode mode, CancellationToken ct = default);
+    Task<Archive> OpenAsync(string path, Stream stream, AccessMode mode, CancellationToken ct = default,
+                            IProgress<ProgressReport>? progress = null);
 
     void Save(Archive archive, Stream stream, CompressionOptions options,
               IProgress<ProgressReport>? progress = null, CancellationToken ct = default);

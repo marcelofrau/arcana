@@ -12,6 +12,7 @@ public class VirtualFileSystem : IDisposable
     private long _spooledBytes;
     private FileStream? _spool;
     private int _nodeCount;
+    private int _directoryCount;
 
     public VirtualFileSystem()
     {
@@ -73,7 +74,8 @@ public class VirtualFileSystem : IDisposable
 
     public ArchiveNode AddLazyFile(string path, Func<Stream> contentFactory, bool ownsContent = true)
     {
-        _log.Verbose("AddLazyFile {Path}", path);
+        if (_nodeCount % 1000 == 0)
+            _log.Debug("AddLazyFile #{Count}: {Path}", _nodeCount, path);
         ObjectDisposedException.ThrowIf(_disposed, this);
         path = NormalizePath(path).Trim('/');
         if (path.Split('/').Length > ArchiveLimits.MaxPathDepth)
@@ -102,7 +104,9 @@ public class VirtualFileSystem : IDisposable
 
     public ArchiveNode AddDirectory(string path)
     {
-        _log.Verbose("AddDirectory {Path}", path);
+        // Per-entry Verbose logging turned a 274k-entry archive into 44k log lines (tens of MB).
+        if (++_directoryCount % 1000 == 0)
+            _log.Debug("AddDirectory #{Count}: {Path}", _directoryCount, path);
         return EnsureDirectory(NormalizePath(path));
     }
 
@@ -185,7 +189,6 @@ public class VirtualFileSystem : IDisposable
 
     public ArchiveNode? FindNode(string path)
     {
-        _log.Verbose("FindNode {Path}", path);
         return _index.GetValueOrDefault(NormalizePath(path));
     }
 

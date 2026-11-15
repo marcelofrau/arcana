@@ -1,8 +1,10 @@
 using Arcana.Core.Cryptography;
 using SharpCompress.Archives.SevenZip;
 using SharpCompress.Common;
+using SharpCompress.Compressors.LZMA;
 using SharpCompress.Readers;
 using SharpCompress.Writers;
+using SharpCompress.Writers.SevenZip;
 using Serilog;
 
 namespace Arcana.Core.Compression.Formats;
@@ -22,7 +24,8 @@ public class SevenZipEngine : IArchiveFormat
     public Archive Open(string path, Stream stream, AccessMode mode, CancellationToken ct = default)
         => OpenAsync(path, stream, mode, ct).GetAwaiter().GetResult();
 
-    public async Task<Archive> OpenAsync(string path, Stream stream, AccessMode mode, CancellationToken ct = default)
+    public async Task<Archive> OpenAsync(string path, Stream stream, AccessMode mode, CancellationToken ct = default,
+                                         IProgress<ProgressReport>? progress = null)
     {
         _log.Verbose("Opening {Path} with mode {Mode}", path, mode);
         var vfs = new Filesystem.VirtualFileSystem();
@@ -33,15 +36,28 @@ public class SevenZipEngine : IArchiveFormat
             _log.Debug("Detected 7z format for {Path}", path);
             var nativeFile = stream is FileStream && ReferenceEquals(readStream, stream);
             var readerOptions = new ReaderOptions { Password = Password, LeaveStreamOpen = !nativeFile };
-            using var sevenZip = nativeFile
+            var sevenZip = nativeFile
                 ? (SharpCompress.Archives.IArchive)SevenZipArchive.OpenArchive(new FileInfo(path), readerOptions)
                 : OpenForReading(readStream, readerOptions);
+            vfs.Own(sevenZip);
+            if (!ReferenceEquals(readStream, stream)) vfs.Own(readStream);
             var entries = new List<ArchiveEntry>();
-            using var reader = sevenZip.ExtractAllEntries();
-            while (reader.MoveToNextEntry())
+            var gate = new SemaphoreSlim(1, 1);
+            var entryCount = 0;
+            var throttle = new ProgressThrottle();
+
+            // Report initial indeterminate progress
+            progress?.Report(new ProgressReport
+            {
+                CurrentFile = Path.GetFileName(path),
+                FilesProcessed = 0,
+                TotalFiles = 0,
+                CurrentOperation = "Reading archive",
+            });
+
+            foreach (var entry in sevenZip.Entries)
             {
                 ct.ThrowIfCancellationRequested();
-                var entry = reader.Entry;
                 var key = entry.Key ?? "";
                 if (entry.IsEncrypted && Password == null)
                     throw new SharpCompress.Common.CryptographicException("Password required.");
@@ -58,24 +74,53 @@ public class SevenZipEngine : IArchiveFormat
                         IsDirectory = true,
                         LastModified = NormalizeTimestamp(entry.LastModifiedTime),
                     });
-                    continue;
+                }
+                else
+                {
+                    var node = vfs.AddLazyFile(key, () =>
+                    {
+                        gate.Wait();
+                        try { return new Filesystem.ArchiveEntryStream(entry.OpenEntryStream(), entry.Size, gate); }
+                        catch (Exception ex) { gate.Release(); _log.Warning(ex, "Could not open 7z entry {Path}", key); throw; }
+                    });
+                    node.OriginalSize = entry.Size;
+                    node.Crc32 = entry.IsEncrypted && entry.Crc == 0 ? null : (uint)entry.Crc;
+                    node.LastModified = NormalizeTimestamp(entry.LastModifiedTime);
+
+                    entries.Add(new ArchiveEntry
+                    {
+                        Path = key,
+                        Name = System.IO.Path.GetFileName(key),
+                        Size = entry.Size,
+                        CompressedSize = entry.CompressedSize,
+                        Crc32 = (uint)entry.Crc,
+                        IsEncrypted = entry.IsEncrypted,
+                        IsDirectory = false,
+                        LastModified = NormalizeTimestamp(entry.LastModifiedTime),
+                    });
                 }
 
-                await using var entryStream = reader.OpenEntryStream();
-                await vfs.AddSpoolFileAsync(key, entryStream, ct).ConfigureAwait(false);
-
-                entries.Add(new ArchiveEntry
+                entryCount++;
+                if (throttle.ShouldReport(entryCount))
                 {
-                    Path = key,
-                    Name = System.IO.Path.GetFileName(key),
-                    Size = entry.Size,
-                    CompressedSize = entry.CompressedSize,
-                    Crc32 = (uint)entry.Crc,
-                    IsEncrypted = entry.IsEncrypted,
-                    IsDirectory = false,
-                    LastModified = NormalizeTimestamp(entry.LastModifiedTime),
-                });
+                    progress?.Report(new ProgressReport
+                    {
+                        CurrentFile = entry.Key ?? "",
+                        FilesProcessed = entryCount,
+                        TotalFiles = 0, // Unknown total
+                        CurrentOperation = "Reading archive",
+                    });
+                }
             }
+
+            // Final progress
+            progress?.Report(new ProgressReport
+            {
+                CurrentFile = "",
+                FilesProcessed = entryCount,
+                TotalFiles = entryCount,
+                CurrentOperation = "Reading archive",
+            });
 
             _log.Information("Opened {Path} with {EntryCount} entries", path, entries.Count);
             return new Archive
@@ -107,9 +152,14 @@ public class SevenZipEngine : IArchiveFormat
         _log.Verbose("Saving archive with {FileCount} files, level {Level}", archive.Vfs.Root.Children.Count, options.Level);
         try
         {
-            var writerOptions = new WriterOptions(CompressionType.LZMA)
+            var dictSize = 1 << Math.Clamp((int)options.Level + 20, 20, 27); // 1MB to 128MB
+            var fastBytes = Math.Clamp((int)options.Level * 4 + 32, 32, 273);
+            var lzmaProps = new LzmaEncoderProperties(false, dictSize, fastBytes);
+            
+            var writerOptions = new SevenZipWriterOptions(CompressionType.LZMA2)
             {
                 LeaveStreamOpen = true,
+                LzmaProperties = lzmaProps,
             };
 
             if (options.Encryption?.Password != null)
@@ -118,7 +168,7 @@ public class SevenZipEngine : IArchiveFormat
             }
             else
             {
-                _log.Debug("No encryption for 7z save");
+                _log.Debug("No encryption for 7z save, using LZMA2");
                 using var writer = WriterFactory.OpenWriter(stream, ArchiveType.SevenZip, writerOptions);
                 await WriteNodesAsync(writer, archive.Vfs.Root, progress, ct).ConfigureAwait(false);
             }

@@ -24,7 +24,7 @@ public static class ArchiveContent
     }
 
     public static async Task<long> CopyVerifiedAsync(ArchiveNode node, Stream destination, CancellationToken ct = default,
-        long limit = ArchiveLimits.MaxExpandedBytes)
+        long limit = ArchiveLimits.MaxExpandedBytes, Action<long>? onProgress = null)
     {
         await using var source = node.OpenRead();
         var buffer = new byte[81920];
@@ -40,6 +40,9 @@ public static class ArchiveContent
             if (node.Crc32.HasValue)
                 for (var i = 0; i < read; i++) crc = (crc >> 8) ^ Table[(crc ^ buffer[i]) & 0xFF];
             await destination.WriteAsync(buffer.AsMemory(0, read), ct).ConfigureAwait(false);
+            // Per chunk so a single huge entry still shows bytes moving; the caller decides
+            // how often that becomes a UI report.
+            onProgress?.Invoke(size);
         }
         if (node.OriginalSize > 0 && size != node.OriginalSize)
             throw new InvalidDataException($"Truncated archive entry: {node.FullPath}");

@@ -4,7 +4,7 @@ namespace Arcana.Core.Compression;
 public static class ArchiveLimits
 {
     public const long MaxExpandedBytes = 64L * 1024 * 1024 * 1024;
-    public const int MaxEntries = 100_000;
+    public const int MaxEntries = 10_000_000;
     public const int MaxPathDepth = 128;
     public const long MaxBufferedWriteBytes = 256L * 1024 * 1024;
 }

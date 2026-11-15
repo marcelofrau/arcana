@@ -21,6 +21,10 @@ public class IsoEngine : IArchiveFormat
     public string? Password { get; set; }
 
     public Archive Open(string path, Stream stream, AccessMode mode, CancellationToken ct = default)
+        => OpenAsync(path, stream, mode, ct).GetAwaiter().GetResult();
+
+    public async Task<Archive> OpenAsync(string path, Stream stream, AccessMode mode, CancellationToken ct = default,
+                                         IProgress<ProgressReport>? progress = null)
     {
         _log.Verbose("Opening {Path} with mode {Mode}", path, mode);
         try
@@ -30,6 +34,8 @@ public class IsoEngine : IArchiveFormat
 
             var entries = new List<ArchiveEntry>();
             var vfs = new Filesystem.VirtualFileSystem();
+            var entryCount = 0;
+            var throttle = new ProgressThrottle();
 
             foreach (var iso in reader.Walk(ct))
             {
@@ -46,23 +52,36 @@ public class IsoEngine : IArchiveFormat
                         IsDirectory = true,
                         LastModified = iso.LastModified,
                     });
-                    continue;
+                }
+                else
+                {
+                    var filePath = path;
+                    var offset = iso.Offset;
+                    var length = iso.Length;
+                    vfs.AddLazyFile(iso.FullPath, () => new Filesystem.FileSliceStream(filePath, offset, length));
+
+                    entries.Add(new ArchiveEntry
+                    {
+                        Path = iso.FullPath,
+                        Name = iso.Name,
+                        Size = length,
+                        CompressedSize = length,
+                        IsDirectory = false,
+                        LastModified = iso.LastModified,
+                    });
                 }
 
-                var filePath = path;
-                var offset = iso.Offset;
-                var length = iso.Length;
-                vfs.AddLazyFile(iso.FullPath, () => new Filesystem.FileSliceStream(filePath, offset, length));
-
-                entries.Add(new ArchiveEntry
+                entryCount++;
+                if (throttle.ShouldReport(entryCount))
                 {
-                    Path = iso.FullPath,
-                    Name = iso.Name,
-                    Size = length,
-                    CompressedSize = length,
-                    IsDirectory = false,
-                    LastModified = iso.LastModified,
-                });
+                    progress?.Report(new ProgressReport
+                    {
+                        CurrentFile = iso.Name,
+                        FilesProcessed = entryCount,
+                        TotalFiles = 0,
+                        CurrentOperation = "Reading archive",
+                    });
+                }
             }
 
             _log.Information("Opened {Path} with {EntryCount} entries ({Names}) as ISO",
@@ -81,9 +100,6 @@ public class IsoEngine : IArchiveFormat
             throw;
         }
     }
-
-    public Task<Archive> OpenAsync(string path, Stream stream, AccessMode mode, CancellationToken ct = default)
-        => Task.FromResult(Open(path, stream, mode, ct));
 
     public void Save(Archive archive, Stream stream, CompressionOptions options,
         IProgress<ProgressReport>? progress = null, CancellationToken ct = default)

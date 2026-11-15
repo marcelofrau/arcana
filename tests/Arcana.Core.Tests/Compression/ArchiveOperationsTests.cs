@@ -12,6 +12,37 @@ public class ArchiveOperationsTests : IDisposable
     public ArchiveOperationsTests() => Directory.CreateDirectory(_directory);
 
     [Fact]
+    public async Task DisposingArchive_ReleasesTheFileSoItCanBeDeleted()
+    {
+        // The GUI offers "delete the archive after extracting". Windows refuses to delete a
+        // file this process still has open, so Dispose must close every volume handle.
+        var path = Path.Combine(_directory, "sample.zip");
+        var source = new Archive
+        {
+            Format = CompressionFormat.Zip,
+            FormatEngine = new ZipEngine(),
+            Vfs = new VirtualFileSystem(),
+        };
+        source.Vfs.AddFile("a.txt", new MemoryStream("hello"u8.ToArray()));
+
+        await using (var stream = File.Create(path))
+            await new ZipEngine().SaveAsync(source, stream, new CompressionOptions { Format = CompressionFormat.Zip });
+        source.Dispose();
+
+        var opened = await ArchiveFactory.OpenAsync(path);
+        opened.Entries.Should().ContainSingle();
+        var node = opened.Vfs.FindNode("a.txt");
+        node.Should().NotBeNull();
+        await using (var content = node!.OpenRead())
+            await content.CopyToAsync(Stream.Null); // touch the lazy stream first
+
+        opened.Dispose();
+
+        var delete = () => File.Delete(path);
+        delete.Should().NotThrow();
+    }
+
+    [Fact]
     public async Task CorruptedEntry_DoesNotReplaceExistingFile()
     {
         using var vfs = new VirtualFileSystem();

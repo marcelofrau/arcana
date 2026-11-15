@@ -18,7 +18,8 @@ public class HawkyntFallbackEngine : IArchiveFormat
     public Archive Open(string path, Stream stream, AccessMode mode, CancellationToken ct = default)
         => OpenAsync(path, stream, mode, ct).GetAwaiter().GetResult();
 
-    public async Task<Archive> OpenAsync(string path, Stream stream, AccessMode mode, CancellationToken ct = default)
+    public async Task<Archive> OpenAsync(string path, Stream stream, AccessMode mode, CancellationToken ct = default,
+                                         IProgress<ProgressReport>? progress = null)
     {
         _log.Verbose("Opening {Path} with mode {Mode}", path, mode);
         try
@@ -43,6 +44,8 @@ public class HawkyntFallbackEngine : IArchiveFormat
 
             var result = new List<ArchiveEntry>();
             var vfs = new Filesystem.VirtualFileSystem();
+            var entryCount = 0;
+            var throttle = new ProgressThrottle();
 
             foreach (var entry in entries)
             {
@@ -61,22 +64,35 @@ public class HawkyntFallbackEngine : IArchiveFormat
                         IsDirectory = true,
                         LastModified = NormalizeTimestamp(entry.LastModified),
                     });
-                    continue;
+                }
+                else
+                {
+                    var data = ops.ExtractEntryToMemory(stream, entry.Name, Password);
+                    vfs.AddFile(key, new MemoryStream(data));
+
+                    result.Add(new ArchiveEntry
+                    {
+                        Path = key,
+                        Name = System.IO.Path.GetFileName(key),
+                        Size = entry.OriginalSize,
+                        CompressedSize = entry.CompressedSize,
+                        IsEncrypted = entry.IsEncrypted,
+                        IsDirectory = false,
+                        LastModified = NormalizeTimestamp(entry.LastModified),
+                    });
                 }
 
-                var data = ops.ExtractEntryToMemory(stream, entry.Name, Password);
-                vfs.AddFile(key, new MemoryStream(data));
-
-                result.Add(new ArchiveEntry
+                entryCount++;
+                if (throttle.ShouldReport(entryCount))
                 {
-                    Path = key,
-                    Name = System.IO.Path.GetFileName(key),
-                    Size = entry.OriginalSize,
-                    CompressedSize = entry.CompressedSize,
-                    IsEncrypted = entry.IsEncrypted,
-                    IsDirectory = false,
-                    LastModified = NormalizeTimestamp(entry.LastModified),
-                });
+                    progress?.Report(new ProgressReport
+                    {
+                        CurrentFile = entry.Name,
+                        FilesProcessed = entryCount,
+                        TotalFiles = 0,
+                        CurrentOperation = "Reading archive",
+                    });
+                }
             }
 
             stream.Position = 0;

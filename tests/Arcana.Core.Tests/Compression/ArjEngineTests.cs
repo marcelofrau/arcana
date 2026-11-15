@@ -45,9 +45,10 @@ public class ArjEngineTests
     }
 
     [Fact]
-    public void CanEncrypt_ShouldBeTrue()
+    public void CanEncrypt_ShouldBeFalseBecauseWritingIsUnsupported()
     {
-        _sut.CanEncrypt.Should().BeTrue();
+        // ARJ is read-only (SaveAsync throws), so advertising encryption support is a lie.
+        _sut.CanEncrypt.Should().BeFalse();
     }
 
     [Fact]

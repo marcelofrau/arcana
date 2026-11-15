@@ -15,4 +15,8 @@ public class ProgressReport
     /// <summary>Bytes written to the (compressed) output stream so far. Only reported
     /// by write-side streams; drives the live compression-ratio chart.</summary>
     public long CompressedBytes { get; init; }
+
+    /// <summary>Archive-side (compressed) size of the whole selection, when known. Lets the
+    /// dialog show the compression ratio and the archive-side progress bar.</summary>
+    public long TotalCompressedBytes { get; init; }
 }

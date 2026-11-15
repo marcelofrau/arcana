@@ -19,7 +19,8 @@ public class Lz4Engine : IArchiveFormat
     public Archive Open(string path, Stream stream, AccessMode mode, CancellationToken ct = default)
         => OpenAsync(path, stream, mode, ct).GetAwaiter().GetResult();
 
-    public async Task<Archive> OpenAsync(string path, Stream stream, AccessMode mode, CancellationToken ct = default)
+    public async Task<Archive> OpenAsync(string path, Stream stream, AccessMode mode, CancellationToken ct = default,
+                                         IProgress<ProgressReport>? progress = null)
     {
         _log.Verbose("Opening {Path} with mode {Mode}", path, mode);
         try

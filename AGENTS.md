@@ -43,6 +43,7 @@ Logging — MANDATE: every code path logs.
 - Levels: Verbose = inner hot-path detail (icon cache build, format descriptor register); Debug = flow/progress (navigate, preview load, settings load); Information = user-visible milestones (archive open/extract/test/save, add/remove favorite, theme switch, command completion); Warning = recoverable (corrupted settings/favorites, image decode fail, in-place update failure); Error = failure with exception (operation failed, format assembly load fail).
 - NEVER log passwords, keys, or archive contents — log "password set" / "encrypting" intent, never the secret value. File paths OK.
 - Log location: console + `%APPDATA%\Arcana\logs\arcana-YYYYMMDD.log`. Level: CLI `--log-level`, GUI Settings → LogLevel.
+- Retention: `LogMaintenance` (runs at startup, background) keeps the 5 newest `.log` as text, gzips older ones to `.log.gz`, keeps 10 archives. Never log per archive entry — throttle with `ProgressThrottle` or a `% 1000` counter.
 - Rule: any new class with behavior gets an `_log`/`Log` field; when editing code add logs for new branches; no silent empty catches — always log the exception.
 - CLI Program.cs logs invocation, duration, exit code; App.axaml.cs logs startup (console bridge + log level).
 
