@@ -5,6 +5,9 @@ VERSION="${1:?Usage: build-release.sh version [x64|arm64]}"
 VERSION="${VERSION#v}"
 ARCH="${2:-x64}"
 [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([+-][0-9A-Za-z.-]+)?$ ]] || { echo "Invalid version" >&2; exit 1; }
+# Assembly and file versions must be numeric: a prerelease suffix is only legal in
+# InformationalVersion, so "1.0.0-beta.1" would otherwise fail to compile.
+NUMERIC="${VERSION%%[-+]*}"
 [[ "$ARCH" == x64 || "$ARCH" == arm64 ]] || { echo "Invalid architecture" >&2; exit 1; }
 case "$(uname -s)" in
   Darwin) OS=osx ;;
@@ -19,7 +22,8 @@ trap 'rm -rf "$STAGE"' EXIT
 for NAME in Arcana.App Arcana.Cli; do
   echo "Publishing $NAME $VERSION for $RID"
   dotnet publish "$ROOT/src/$NAME/$NAME.csproj" -c Release -r "$RID" --self-contained true \
-    -p:PublishReadyToRun=false -p:Version="$VERSION" -p:VersionPrefix="$VERSION" \
+    -p:PublishReadyToRun=false -p:Version="$VERSION" -p:VersionPrefix="$NUMERIC" \
+    -p:AssemblyVersion="$NUMERIC" -p:FileVersion="$NUMERIC" \
     -p:InformationalVersion="$VERSION" -o "$STAGE/$NAME"
 done
 cp "$ROOT/LICENSE" "$STAGE/LICENSE"

@@ -28,7 +28,7 @@ public static class ArchiveExtractor
         var target = Path.GetFullPath(Path.Combine(root, Path.Combine(parts)));
         if (!target.StartsWith(root, OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal))
             throw new InvalidDataException($"Archive path escapes its destination: {entryPath}");
-        AtomicFile.RejectLinks(target, linkCache);
+        AtomicFile.RejectLinks(target, linkCache, directory);
         return target;
     }
 
@@ -77,7 +77,7 @@ public static class ArchiveExtractor
             }
         }
         ct.ThrowIfCancellationRequested();
-        AtomicFile.RejectLinks(destination, linkCache);
+        // The destination itself is the user's choice, so it is not link-checked; every path below it is.
         Directory.CreateDirectory(destination);
 
         // Pre-create all directories first (sequential, fast)
@@ -143,7 +143,7 @@ public static class ArchiveExtractor
             {
                 ct.ThrowIfCancellationRequested();
                 var target = originalTarget;
-                AtomicFile.RejectLinks(target, linkCache);
+                AtomicFile.RejectLinks(target, linkCache, destination);
 
                 var exists = File.Exists(target);
                 var replace = overwrite;

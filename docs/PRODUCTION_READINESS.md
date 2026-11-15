@@ -21,7 +21,7 @@ This is an active hardening release, not a claim of feature parity with WinRAR, 
 - Extraction/decoded caches are limited to 64 GiB per operation/archive, 100,000 VFS nodes and 128 path components. These are explicit resource ceilings, not advertised format limits.
 - 7z/RAR/TAR opening may decode to temporary disk storage before browsing. ZIP and ISO avoid full decompression when listing.
 - Single-file formats do not preserve a directory tree. Use TAR + compression for trees.
-- Symlink/junction import and linked extraction destinations are rejected. Unix permissions, ACLs, alternate data streams and all legacy-format variations are not yet a certified backup-preservation contract.
+- Symlink/junction import and linked paths inside an extraction destination are rejected. The destination directory itself is accepted as the user chose it, which is what lets macOS temp folders (`/var` is a symlink there) work. Unix permissions, ACLs, alternate data streams and all legacy-format variations are not yet a certified backup-preservation contract.
 - Per-file extraction is atomic; cancellation can leave already completed files and created directories. Incomplete output files are removed.
 - Existing filesystem links are checked before writing and publishing. A separate process with write access racing to replace parent directories is outside the current path-based extraction protection.
 

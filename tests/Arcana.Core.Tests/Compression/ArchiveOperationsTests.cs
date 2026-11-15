@@ -43,6 +43,31 @@ public class ArchiveOperationsTests : IDisposable
     }
 
     [Fact]
+    public async Task LinkAboveDestination_IsAllowed_LinkInsideIsRejected()
+    {
+        // macOS mounts /var and /tmp through symlinks, so walking above the destination used to
+        // reject every extraction into a temp folder. Links inside the destination stay forbidden.
+        if (OperatingSystem.IsWindows()) return; // creating a symlink needs elevated rights here
+
+        var real = Path.Combine(_directory, "real");
+        var link = Path.Combine(_directory, "link");
+        Directory.CreateDirectory(real);
+        Directory.CreateSymbolicLink(link, real);
+
+        using var vfs = new VirtualFileSystem();
+        vfs.AddFile("a.txt", new MemoryStream("hello"u8.ToArray()));
+        var destination = Path.Combine(link, "out");
+        await ArchiveExtractor.ExtractAsync([vfs.FindNode("a.txt")!], destination);
+        File.ReadAllText(Path.Combine(real, "out", "a.txt")).Should().Be("hello");
+
+        Directory.CreateSymbolicLink(Path.Combine(destination, "inner"), Path.Combine(_directory, "elsewhere"));
+        using var nested = new VirtualFileSystem();
+        nested.AddFile("inner/b.txt", new MemoryStream("no"u8.ToArray()));
+        Func<Task> throughLink = () => ArchiveExtractor.ExtractAsync([nested.FindNode("inner/b.txt")!], destination);
+        await throughLink.Should().ThrowAsync<IOException>();
+    }
+
+    [Fact]
     public async Task CorruptedEntry_DoesNotReplaceExistingFile()
     {
         using var vfs = new VirtualFileSystem();

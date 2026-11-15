@@ -152,6 +152,10 @@ jobs:
         body_path: release-body.md
         append_body: true
         fail_on_unmatched_files: false
+        # A tag with a suffix (v1.0.0-beta.1) publishes as a prerelease and never
+        # becomes the "latest" release.
+        prerelease: ${{ contains(github.ref_name, '-') }}
+        make_latest: ${{ contains(github.ref_name, '-') && 'false' || 'true' }}
 
     - name: VirusTotal Scan
       uses: cssnr/virustotal-action@v1

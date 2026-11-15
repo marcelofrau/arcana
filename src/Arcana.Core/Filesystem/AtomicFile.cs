@@ -118,10 +118,19 @@ public static class AtomicFile
     /// Optional per-operation cache of already validated segments. Bulk callers (extraction) reuse it so a
     /// destination tree of thousands of entries costs one attribute check per directory, not per entry.
     /// </param>
-    public static void RejectLinks(string path, ConcurrentDictionary<string, byte>? linkCache = null)
+    /// <param name="root">
+    /// Directory the caller controls; the walk stops below it. Defaults to the file's own directory. Links
+    /// above the destination belong to the environment, not to archive content: on macOS both /var and /tmp
+    /// are symlinks, so walking to the filesystem root rejected every legitimate write there.
+    /// </param>
+    public static void RejectLinks(string path, ConcurrentDictionary<string, byte>? linkCache = null,
+        string? root = null)
     {
-        for (var current = Path.GetFullPath(path); current != null; current = Path.GetDirectoryName(current))
+        var full = Path.GetFullPath(path);
+        var stop = Path.TrimEndingDirectorySeparator(Path.GetFullPath(root ?? Path.GetDirectoryName(full)!));
+        for (var current = full; current != null; current = Path.GetDirectoryName(current))
         {
+            if (string.Equals(Path.TrimEndingDirectorySeparator(current), stop, PathComparison)) break;
             // Ancestors are cached in the same upward walk, so a hit ends the check.
             if (linkCache != null && linkCache.ContainsKey(current)) break;
             try
@@ -134,4 +143,7 @@ public static class AtomicFile
             linkCache?.TryAdd(current, 0);
         }
     }
+
+    private static readonly StringComparison PathComparison =
+        OperatingSystem.IsLinux() ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase;
 }

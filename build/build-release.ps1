@@ -7,6 +7,9 @@ param(
 $ErrorActionPreference = 'Stop'
 $Version = $Version -replace '^v', ''
 if ($Version -notmatch '^\d+\.\d+\.\d+([+-][0-9A-Za-z.-]+)?$') { throw "Invalid release version: $Version" }
+# Assembly and file versions must be numeric: a prerelease suffix is only legal in
+# InformationalVersion, so "1.0.0-beta.1" would otherwise fail to compile.
+$numeric = $Version -replace '[-+].*$', ''
 $root = Split-Path -Parent $PSScriptRoot
 $dist = Join-Path $PSScriptRoot 'dist'
 $rid = "win-$Arch"
@@ -19,7 +22,8 @@ try {
     foreach ($name in @('Arcana.App', 'Arcana.Cli')) {
         & dotnet publish "$root/src/$name/$name.csproj" -c Release -r $rid --self-contained true `
             "-p:PublishReadyToRun=$($Arch -eq 'x64')" "-p:Version=$Version" `
-            "-p:VersionPrefix=$Version" "-p:InformationalVersion=$Version" -o (Join-Path $stage $name)
+            "-p:VersionPrefix=$numeric" "-p:AssemblyVersion=$numeric" "-p:FileVersion=$numeric" `
+            "-p:InformationalVersion=$Version" -o (Join-Path $stage $name)
         if ($LASTEXITCODE -ne 0) { throw "Publish failed for $name" }
     }
     Copy-Item "$root/LICENSE" $stage
@@ -40,7 +44,7 @@ try {
         $command = Get-Command ISCC.exe -ErrorAction SilentlyContinue
         $compiler = if ($command) { $command.Source } else { "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" }
         if (!(Test-Path $compiler)) { throw 'Install Inno Setup 6 to build the Windows installer.' }
-        & $compiler "/DAppVersion=$Version" "/DTargetArch=$Arch" "/DSourceRoot=$stage" "/DOutputRoot=$dist" "$PSScriptRoot/installer/Arcana.iss"
+        & $compiler "/DAppVersion=$numeric" "/DAppVersionLabel=$Version" "/DTargetArch=$Arch" "/DSourceRoot=$stage" "/DOutputRoot=$dist" "$PSScriptRoot/installer/Arcana.iss"
         if ($LASTEXITCODE -ne 0) { throw 'Installer compilation failed.' }
     }
 }

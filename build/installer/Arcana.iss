@@ -1,6 +1,11 @@
 #ifndef AppVersion
   #define AppVersion "0.1.0"
 #endif
+; Display label keeps the prerelease suffix ("1.0.0-beta.1") that VersionInfoVersion,
+; which Inno derives from AppVersion, cannot hold.
+#ifndef AppVersionLabel
+  #define AppVersionLabel AppVersion
+#endif
 #ifndef SourceRoot
   #define SourceRoot "..\dist\stage-win-x64"
 #endif
@@ -15,13 +20,14 @@
 AppId={{E0B54516-1FBD-4BAF-A951-8CB4F84B2112}
 AppName=Arcana
 AppVersion={#AppVersion}
+AppVerName=Arcana {#AppVersionLabel}
 AppPublisher=Marcelo Frau
 AppPublisherURL=https://github.com/marcelofrau/arcana
 DefaultDirName={localappdata}\Programs\Arcana
 DefaultGroupName=Arcana
 PrivilegesRequired=lowest
 OutputDir={#OutputRoot}
-OutputBaseFilename=Arcana-v{#AppVersion}-win-{#TargetArch}-setup
+OutputBaseFilename=Arcana-v{#AppVersionLabel}-win-{#TargetArch}-setup
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
