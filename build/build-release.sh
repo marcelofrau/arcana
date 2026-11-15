@@ -61,13 +61,15 @@ Description: Managed archive manager with an Avalonia desktop interface and CLI
 EOF
   dpkg-deb --build --root-owner-group "$DEB" "$DIST/Arcana-v$VERSION-$RID.deb"
 else
-  APP="$STAGE/Arcana.app"
+  # The bundle lives outside Arcana.App: APFS is case-insensitive, so "$STAGE/Arcana.app"
+  # would be the publish directory and `cp -a Arcana.App/.` into it would recurse forever.
+  APP="$STAGE/bundle/Arcana.app"
   mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
   cp -a "$STAGE/Arcana.App/." "$APP/Contents/MacOS/"
   cp -a "$STAGE/Arcana.Cli" "$APP/Contents/Resources/cli"
   cp "$STAGE/LICENSE" "$STAGE/THIRD_PARTY_NOTICES.md" "$APP/Contents/Resources/"
   sed "s/@VERSION@/${VERSION%%[-+]*}/g" "$ROOT/build/macos/Info.plist" > "$APP/Contents/Info.plist"
-  ICONSET="$STAGE/Arcana.iconset"
+  ICONSET="$STAGE/bundle/Arcana.iconset"
   mkdir -p "$ICONSET"
   for SIZE in 16 32 128 256 512; do
     sips -z "$SIZE" "$SIZE" "$ROOT/docs/logo-icon.png" --out "$ICONSET/icon_${SIZE}x${SIZE}.png" >/dev/null

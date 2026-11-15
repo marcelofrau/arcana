@@ -35,8 +35,19 @@ try {
         & "$PSScriptRoot/smoke-test.ps1" -CliPath (Join-Path $stage 'Arcana.Cli/Arcana.Cli.exe')
     }
 
+    # Entry names must use '/' (ZIP spec). Windows PowerShell's ZipFile writes '\', which the
+    # release verification and most Unix unzippers do not accept.
+    Add-Type -AssemblyName System.IO.Compression
     Add-Type -AssemblyName System.IO.Compression.FileSystem
-    [System.IO.Compression.ZipFile]::CreateFromDirectory($stage, $zipTemporary)
+    $archive = [System.IO.Compression.ZipFile]::Open($zipTemporary, [System.IO.Compression.ZipArchiveMode]::Create)
+    try {
+        foreach ($file in Get-ChildItem -Path $stage -Recurse -File) {
+            $entry = $file.FullName.Substring($stage.Length).TrimStart('\', '/').Replace('\', '/')
+            [void][System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile(
+                $archive, $file.FullName, $entry, [System.IO.Compression.CompressionLevel]::Optimal)
+        }
+    }
+    finally { $archive.Dispose() }
     Move-Item $zipTemporary $zipPath -Force
     Write-Host "Portable package: $zipPath"
 

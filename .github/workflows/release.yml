@@ -89,25 +89,47 @@ jobs:
       run: |
         set -euo pipefail
         shopt -s nullglob
-        zips=(build/dist/Arcana-*.zip)
-        if [ ${#zips[@]} -eq 0 ]; then
-          echo "::error::No ZIP found in build/dist/"
-          exit 1
-        fi
-        zip="${zips[0]}"
-        echo "Verifying: $(basename "$zip")"
         case "${{ matrix.rid }}" in
-          win-*) expected="Arcana.App/Arcana.App.exe" ;;
-          *)     expected="Arcana.App/Arcana.App" ;;
+          osx-*)
+            # macOS ships a DMG only: mount it and look inside the bundle.
+            dmgs=(build/dist/Arcana-*-osx-*.dmg)
+            if [ ${#dmgs[@]} -eq 0 ]; then
+              echo "::error::No DMG found in build/dist/"
+              exit 1
+            fi
+            mount="$(mktemp -d)"
+            hdiutil attach "${dmgs[0]}" -mountpoint "$mount" -nobrowse -readonly >/dev/null
+            trap 'hdiutil detach "$mount" -quiet || true' EXIT
+            if [ -x "$mount/Arcana.app/Contents/MacOS/Arcana.App" ]; then
+              echo "✅ Arcana.app bundle contains the native executable"
+            else
+              echo "::error::Missing Arcana.app/Contents/MacOS/Arcana.App in $(basename "${dmgs[0]}")"
+              ls -la "$mount"
+              exit 1
+            fi
+            ;;
+          *)
+            zips=(build/dist/Arcana-*.zip)
+            if [ ${#zips[@]} -eq 0 ]; then
+              echo "::error::No ZIP found in build/dist/"
+              exit 1
+            fi
+            zip="${zips[0]}"
+            echo "Verifying: $(basename "$zip")"
+            case "${{ matrix.rid }}" in
+              win-*) expected="Arcana.App/Arcana.App.exe" ;;
+              *)     expected="Arcana.App/Arcana.App" ;;
+            esac
+            if unzip -Z1 "$zip" 2>/dev/null | grep -qxF "$expected"; then
+              echo "✅ '$expected' present"
+            else
+              echo "::error::Missing '$expected' in $(basename "$zip")"
+              echo "ZIP contents:"
+              unzip -Z1 "$zip"
+              exit 1
+            fi
+            ;;
         esac
-        if unzip -Z1 "$zip" 2>/dev/null | grep -qxF "$expected"; then
-          echo "✅ '$expected' present"
-        else
-          echo "::error::Missing '$expected' in $(basename "$zip")"
-          echo "ZIP contents:"
-          unzip -Z1 "$zip"
-          exit 1
-        fi
 
     - uses: actions/upload-artifact@v4
       with:
